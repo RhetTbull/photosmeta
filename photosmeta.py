@@ -301,7 +301,7 @@ def get_exiftool_path():
     exiftool_path = result.stdout.decode('utf-8')
     do_log("exiftool path = %s" % (exiftool_path))
     if exiftool_path is not "":
-        return exiftool_path
+        return exiftool_path.rstrip()
     else:
         errstr = "Could not find exiftool"
         sys.exit(errstr)
@@ -521,6 +521,30 @@ def process_photo(uuid, photopath):
     #process a photo using exiftool
     global _args
     global _dbphotos
+
+    #keywords = list(map(lambda x: "-XMP:TagsList='%s' -keywords+='%s" % (x, x), _dbkeywords_uuid[uuid]))
+    #persons = list(map(lambda x: "-xmp:PersonInImage+='%s" % x, _dbfaces_uuid[uuid]))
+    
+    keywords = None
+    persons = None
+
+    if uuid in _dbkeywords_uuid:
+        keywords = list(map(lambda x: "-XMP:TagsList='%s' -keywords+='%s" % (x, x), _dbkeywords_uuid[uuid]))
+    if uuid in _dbfaces_uuid:
+        persons = list(map(lambda x: "-xmp:PersonInImage+='%s" % x, _dbfaces_uuid[uuid]))
+
+    print("KEYWORDS: %s" % keywords)
+    print("PERSONS: %s" % persons)
+
+    k = ''
+    p = ''
+    if keywords:
+        k = ' '.join(keywords)
+    if persons:
+        p = ' '.join(persons)
+    exif_cmd = "%s %s %s '%s'" % (_exiftool, k, p, photopath)
+    print("EXIF_CMD: %s" % exif_cmd)
+    
     return
    
 
@@ -528,8 +552,9 @@ def main():
     global _verbose
     global _dbfile
     global _args
+    global _exiftool
 
-    get_exiftool_path()
+    _exiftool = get_exiftool_path()
     setup_applescript()
     process_arguments()
 
@@ -646,7 +671,6 @@ def main():
         else:
             photopath = os.path.join(masters_path, _dbphotos[uuid]['imagePath'])
 
-        #build_exiftool_cmd()
         if not _args.test:
             print("processing photo: %s " % (photopath))
             process_photo(uuid, photopath)
