@@ -94,6 +94,13 @@ scpt_quit = ""
 #TODO: used by scpt_export--remove
 tmppath = "%s/tmp/" % str(Path.home())
 
+#custom argparse class to show help if error triggered
+class MyParser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+        self.print_help()
+        sys.exit(2)
+
 def process_arguments():
     global _args
     global _verbose
@@ -101,11 +108,11 @@ def process_arguments():
     global _debug
 
     # Setup command line arguments
-    parser = argparse.ArgumentParser()
+    parser = MyParser()
     # one required argument: path to database file
     #parser.add_argument("DATABASE_FILE", help="path to Photos database file")
     parser.add_argument("--database",
-                        help="database file [will default to Photos default file")
+                        help="database file [will default to Photos default file]")
     parser.add_argument("-v", "--verbose", action="store_true", default=False,
                         help="print verbose output",)
     parser.add_argument("--debug", action="store_true", default=False,
@@ -125,8 +132,13 @@ def process_arguments():
     parser.add_argument("--inplace", action='store_true', default=False,
                         help="modify all photos in place (don't export)")
     parser.add_argument("--list", action='append',
-                        help="list keywords, albums, persons found in database" +
+                        help="list keywords, albums, persons found in database: " +
                         "--list=keyword, --list=album, --list=person")
+
+    #if no args, show help and exit
+    if len(sys.argv)==1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
 
     _args = parser.parse_args()
     _verbose = _args.verbose
