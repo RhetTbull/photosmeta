@@ -138,7 +138,9 @@ def process_arguments():
     parser.add_argument("--all", action='store_true', default=False,
                         help="export all photos in the database")
     parser.add_argument("--inplace", action='store_true', default=False,
-                        help="modify all photos in place (don't export)")
+                        help="modify all photos in place (don't create backups)")
+    parser.add_argument("--xattr", action='store_true', default=False,
+                        help="write tags/keywords to file's extended attributes (kMDItemUserTags) so you can search in spotlight using 'tag:'")
     parser.add_argument("--list", action='append',
                         help="list keywords, albums, persons found in database: " +
                         "--list=keyword, --list=album, --list=person")
@@ -314,15 +316,6 @@ def open_sql_file(file):
         sys.exit(3)
     do_log("SQLite database is open")
     return(conn, c)
-
-
-def write_metadata_to_file(file, data):
-    print("writeMetaDataToFile")
-    do_log("writeMetaDataToFile: file = %s" % (file))
-    pp = pprint.PrettyPrinter(indent=4)
-    pp.pprint(data)
-    return
-
 
 def get_exiftool_path():
     global _exiftool
@@ -603,14 +596,16 @@ def process_photo(uuid, photopath):
     keywords = None
     persons = None
 
+    keywords_raw = None
+
     #todo: merge list
     if uuid in _dbkeywords_uuid:
         #merge existing keywords, removing duplicates
         tmp1 = j[0]['IPTC:Keywords'] if 'IPTC:Keywords' in j[0] else None
         tmp2 = j[0]['XMP:TagsList'] if 'XMP:TagsList' in j[0] else None
-        tmp = build_list([_dbkeywords_uuid[uuid],tmp1, tmp2])
-        tmp = set(tmp)
-        keywords = [ "-XMP:TagsList='%s' -keywords='%s'" % (x, x) for x in tmp ]
+        keywords_raw = build_list([_dbkeywords_uuid[uuid],tmp1, tmp2])
+        keywords_raw = set(keywords_raw)
+        keywords = [ "-XMP:TagsList='%s' -keywords='%s'" % (x, x) for x in keywords_raw ]
 
     if uuid in _dbfaces_uuid:
         tmp1 = j[0]['XMP:Subject'] if 'XMP:Subject' in j[0] else None
@@ -673,7 +668,33 @@ def process_photo(uuid, photopath):
                 proc.stdout.decode('utf-8')))
             print(proc.stdout.decode('utf-8')) #todo: make this a verbose option
 
+    #update xattr tags if requested
+    xattr_cmd = None
+    if _args.xattr and keywords_raw:
+        xattr_cmd = 'xattr -w com.apple.metadata:_kMDItemUserTags '
+        taglist = build_list(list(keywords_raw))
+        tags = ["<string>%s</string>" % (x) for x in taglist]
+        plist = (   '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
+                    '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">'
+                    '<array>%s</array></plist>' % ' '.join(tags) )
 
+        xattr_cmd = "%s '%s' '%s'" % (xattr_cmd, plist, photopath)
+        print("applying extended attributes")
+        do_log("xattr_cmd: %s" % xattr_cmd)
+
+        if  not _args.test:
+            try:
+                proc = subprocess.run(xattr_cmd, check=True, shell=True, 
+                                        stdout=subprocess.PIPE) 
+            except subprocess.CalledProcessError as e:
+                print("subprocess error calling command %s: " % xattr_cmd, e)
+                sys.exit(1)
+            else:
+                do_log('returncode: %d' % proc.returncode)
+                do_log('Have {} bytes in stdout:\n{}'.format(
+                    len(proc.stdout),
+                    proc.stdout.decode('utf-8')))
+        
     return
 
 def main():
