@@ -10,11 +10,16 @@ todo: option to export then apply tags (e.g. don't tag original)
 todo: cleanup single/double quotes
 todo: cleanup temp file
 
+todo: what to do with "None" in PersonInImage (Photos recognizes face but no name)
+
+todo: add end of func comment marker
+todo: standardize/cleanup exception handling in helper functions
+
 todo: how are live photos handled
 todo: store person in XMP:Subject (that's what iPhoto does 
     (it also stores keywords there)) on export with IPTC to XMP
 
-todo: add option to list keywords, persons, etc found in database --list
+todo: use -stay_open with exiftool to aviod repeated subprocess calls
 
 todo: right now, options (keyword, person, etc) are OR...add option for AND
         e.g. only process photos in album=Test AND person=Joe
@@ -30,6 +35,8 @@ todo: test cases:
 
 See also:
     https://github.com/orangeturtle739/photos-export
+    https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
+
 
 '''
 
@@ -54,6 +61,7 @@ import applescript
 from plistlib import load 
 from shutil import copyfile
 import tempfile
+import json
 
 # Globals
 _debug = False
@@ -147,6 +155,15 @@ def process_arguments():
 
     if _args.keyword is not None:
         print("keywords: " + " ".join(_args.keyword))
+
+def check_file_exists(filename):
+    #returns true if file exists and is not a directory
+    #otherwise returns false
+    
+    filename = os.path.abspath(filename)
+    return (os.path.exists(filename) and not os.path.isdir(filename))
+#check_file_exists
+
 
 def get_photos_library_path():
     #return the path to the Photos library
@@ -529,24 +546,81 @@ def process_database(fname):
         print("Photos:")
         pp.pprint(_dbphotos)
 
+def get_exif_info_as_json(photopath):
+    #get exif info from file as JSON via exiftool
+
+    if not check_file_exists(photopath):
+        raise ValueError("Photopath %s does not appear to be valid file" % photopath)
+        return
+
+    _exiftool = get_exiftool_path()
+    exif_cmd = "%s %s %s %s '%s'" % (_exiftool, '-G', '-j', '-sort', photopath)
+
+    try:
+        proc = subprocess.run(exif_cmd, check=True, shell=True, 
+                            stdout=subprocess.PIPE) 
+    except subprocess.CalledProcessError as e:
+        print("subprocess error calling command %s: " % exif_cmd, e)
+        sys.exit(1)
+    else:
+        do_log('returncode: %d' % proc.returncode)
+        do_log('Have {} bytes in stdout:\n{}'.format(
+            len(proc.stdout),
+            proc.stdout.decode('utf-8')))
+
+    j = json.loads(proc.stdout.decode('utf-8').rstrip('\r\n'))
+
+    return j
+
+def build_list(lst):
+    #takes an array of elements that may be a string or list
+    #  and returns a list of all items appended
+    tmplst = []
+    for x in lst:
+        if x is not None:
+            if isinstance(x, list):
+                tmplst = tmplst + x
+            else:
+                tmplst.append(x)
+    return tmplst
+
+
 def process_photo(uuid, photopath):
     #process a photo using exiftool
     global _args
     global _dbphotos
 
-    #keywords = list(map(lambda x: "-XMP:TagsList='%s' -keywords+='%s" % (x, x), _dbkeywords_uuid[uuid]))
-    #persons = list(map(lambda x: "-xmp:PersonInImage+='%s" % x, _dbfaces_uuid[uuid]))
+    if not check_file_exists(photopath):
+        warn("WARNING: photo %s does not appear to exist; skipping" % photopath)
+        #todo: should this be a fatal error?
+        return
     
+    #get existing metadata
+    j = get_exif_info_as_json(photopath)
+    
+    do_log(j)
+
     keywords = None
     persons = None
 
+    #todo: merge list
     if uuid in _dbkeywords_uuid:
-        keywords = list(map(lambda x: "-XMP:TagsList='%s' -keywords+='%s" % (x, x), _dbkeywords_uuid[uuid]))
-    if uuid in _dbfaces_uuid:
-        persons = list(map(lambda x: "-xmp:PersonInImage+='%s" % x, _dbfaces_uuid[uuid]))
+        #merge existing keywords, removing duplicates
+        tmp1 = j[0]['IPTC:Keywords'] if 'IPTC:Keywords' in j[0] else None
+        tmp2 = j[0]['XMP:TagsList'] if 'XMP:TagsList' in j[0] else None
+        tmp = build_list([_dbkeywords_uuid[uuid],tmp1, tmp2])
+        tmp = set(tmp)
+        keywords = [ "-XMP:TagsList='%s' -keywords='%s'" % (x, x) for x in tmp ]
 
-    print("KEYWORDS: %s" % keywords)
-    print("PERSONS: %s" % persons)
+    if uuid in _dbfaces_uuid:
+        tmp1 = j[0]['XMP:Subject'] if 'XMP:Subject' in j[0] else None
+        tmp2 = j[0]['XMP:PersonInImage'] if 'XMP:PersonInImage' in j[0] else None
+        tmp = build_list([_dbfaces_uuid[uuid],tmp1, tmp2])
+        tmp = set(tmp)
+        persons =  [ "-xmp:PersonInImage='%s' -subject='%s'" % (x, x) for x in tmp ]
+
+    #print("KEYWORDS: %s" % keywords)
+    #print("PERSONS: %s" % persons)
 
     k = ''
     p = ''
@@ -554,11 +628,53 @@ def process_photo(uuid, photopath):
         k = ' '.join(keywords)
     if persons:
         p = ' '.join(persons)
-    exif_cmd = "%s %s %s '%s'" % (_exiftool, k, p, photopath)
-    print("EXIF_CMD: %s" % exif_cmd)
+
+    desc = ''
+    desc = desc or _dbphotos[uuid]['extendedDescription']
+    d = ''
+    if desc:
+        d = "-ImageDescription='%s' -xmp:description='%s'" % (desc, desc)
+
+    #print("DESC: %s" % desc)
+
+    #title = name
+    title = ''
+    title = title or _dbphotos[uuid]['name']
+    t = ''
+    if title:
+        t = "-xmp:title='%s'" % (title)
+
+    #print("TITLE: %s" % title)
+
+    #todo: if nothing to do then skip
     
+    inplace = ''
+    if _args.inplace:
+        inplace = "-overwrite_original_in_place"
+
+    #print("INPLACE: %s" % inplace)
+
+    #-P = preserve timestamp
+    exif_cmd = "%s %s %s %s %s %s -P '%s'" % (_exiftool, k, p, d, t, inplace, photopath)
+    print("running: %s" % (exif_cmd)) #todo: make this a verbose option
+    
+    if not _args.test:
+        try:
+            #[_exiftool, k, p, d, t, inplace, photopath]
+            proc = subprocess.run(exif_cmd, check=True, shell=True, 
+                                stdout=subprocess.PIPE) 
+        except subprocess.CalledProcessError as e:
+            print("subprocess error calling command %s: " % exif_cmd, e)
+            sys.exit(1)
+        else:
+            do_log('returncode: %d' % proc.returncode)
+            do_log('Have {} bytes in stdout:\n{}'.format(
+                len(proc.stdout),
+                proc.stdout.decode('utf-8')))
+            print(proc.stdout.decode('utf-8')) #todo: make this a verbose option
+
+
     return
-   
 
 def main():
     global _verbose
@@ -589,8 +705,7 @@ def main():
     masters_path = os.path.join(library_path, "Masters")
     do_log("library = %s, masters = %s" % (library_path, masters_path))
 
-    # if(not os.path.exists("%s/database/photos.db" % filename)):
-    if (not os.path.exists(filename)):
+    if (not check_file_exists(filename)):
         filename = None
         print("_dbfile %s does not exist" % filename)
         sys.exit(1)
@@ -628,45 +743,50 @@ def main():
     # for now, all conditions (albums, keywords, uuid, faces) are considered "OR"
     # e.g. --keyword=family --album=Vacation finds all photos with keyword family OR album Vacation
     # todo: a lot of repetitive code here
-    if _args.album is not None:
-        for album in _args.album:
-            print("album=%s" % album)
-            if album in _dbalbums_album:
-                print("processing album %s:" % album)
-                photos.extend(_dbalbums_album[album])
-            else:
-                print("Could not find album '%s' in database" %
-                      (album), file=sys.stderr)
 
-    if _args.uuid is not None:
-        for uuid in _args.uuid:
-            print("uuid=%s" % uuid)
-            if uuid in _dbphotos:
-                print("processing uuid %s:" % uuid)
-                photos.extend([uuid])
-            else:
-                print("Could not find uuid '%s' in database" %
-                      (uuid), file=sys.stderr)
+    if _args.all:
+        #process all the photos
+        photos = list(_dbphotos.keys())
+    else:
+        if _args.album is not None:
+            for album in _args.album:
+                print("album=%s" % album)
+                if album in _dbalbums_album:
+                    print("processing album %s:" % album)
+                    photos.extend(_dbalbums_album[album])
+                else:
+                    print("Could not find album '%s' in database" %
+                        (album), file=sys.stderr)
 
-    if _args.keyword is not None:
-        for keyword in _args.keyword:
-            print("keyword=%s" % keyword)
-            if keyword in _dbkeywords_keyword:
-                print("processing keyword %s:" % keyword)
-                photos.extend(_dbkeywords_keyword[keyword])
-            else:
-                print("Could not find keyword '%s' in database" %
-                      (keyword), file=sys.stderr)
+        if _args.uuid is not None:
+            for uuid in _args.uuid:
+                print("uuid=%s" % uuid)
+                if uuid in _dbphotos:
+                    print("processing uuid %s:" % uuid)
+                    photos.extend([uuid])
+                else:
+                    print("Could not find uuid '%s' in database" %
+                        (uuid), file=sys.stderr)
 
-    if _args.person is not None:
-        for person in _args.person:
-            print("person=%s" % person)
-            if person in _dbfaces_person:
-                print("processing person %s:" % person)
-                photos.extend(_dbfaces_person[person])
-            else:
-                print("Could not find person '%s' in database" %
-                      (person), file=sys.stderr)
+        if _args.keyword is not None:
+            for keyword in _args.keyword:
+                print("keyword=%s" % keyword)
+                if keyword in _dbkeywords_keyword:
+                    print("processing keyword %s:" % keyword)
+                    photos.extend(_dbkeywords_keyword[keyword])
+                else:
+                    print("Could not find keyword '%s' in database" %
+                        (keyword), file=sys.stderr)
+
+        if _args.person is not None:
+            for person in _args.person:
+                print("person=%s" % person)
+                if person in _dbfaces_person:
+                    print("processing person %s:" % person)
+                    photos.extend(_dbfaces_person[person])
+                else:
+                    print("Could not find person '%s' in database" %
+                        (person), file=sys.stderr)
 
     if _debug:
         pp = pprint.PrettyPrinter(indent=4)
