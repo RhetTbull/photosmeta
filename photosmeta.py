@@ -52,7 +52,6 @@ import subprocess
 import os.path
 import argparse
 from pathlib import Path
-from warnings import warn
 import objc
 from Foundation import *
 import CoreFoundation
@@ -175,7 +174,7 @@ def get_photos_library_path():
         with open(plist_file, 'rb') as fp:
             pl = load(fp)
     else:
-        warn('could not find plist file: ' + str(plist_file))
+        print('could not find plist file: ' + str(plist_file),file=sys.stderr)
         return None
 
     #get the IPXDefaultLibraryURLBookmark from com.apple.Photos.plist
@@ -203,12 +202,12 @@ def get_photos_library_path():
                     photosurlstr)
                     .path))
         else:
-            warn("Could not extract photos URL String from IPXDefaultLibraryURLBookmark")
+            print("Could not extract photos URL String from IPXDefaultLibraryURLBookmark",file=sys.stderr)
             return None
 
         return photospath
     else:
-        warn("Could not get path to Photos database")
+        print("Could not get path to Photos database",file=sys.stderr)
         return None
 #get_photos_library_path
 
@@ -221,7 +220,7 @@ def copy_db_file(fname):
     try:
         copyfile(fname,tmp)
     except:
-        warn("copying " + fname +" to " + tmp)
+        print("copying " + fname +" to " + tmp,file=sys.stderr)
         sys.exit()
     return tmp
 
@@ -446,7 +445,8 @@ def process_database(fname):
     c.execute("select RKVersion.uuid, RKVersion.modelId, RKVersion.masterUuid, RKVersion.filename, "
             + "RKVersion.lastmodifieddate, RKVersion.imageDate, RKVersion.mainRating, "
             + "RKVersion.hasAdjustments, RKVersion.hasKeywords, RKVersion.imageTimeZoneOffsetSeconds, "
-            + "RKMaster.volumeId, RKMaster.imagePath, RKVersion.extendedDescription, RKVersion.name "
+            + "RKMaster.volumeId, RKMaster.imagePath, RKVersion.extendedDescription, RKVersion.name, "
+            + "RKMaster.isMissing "
             + "from RKVersion, RKMaster where RKVersion.isInTrash = 0 and RKVersion.type = 2 and "
             + "RKVersion.masterUuid = RKMaster.uuid and RKVersion.filename not like '%.pdf'")
     i = 0
@@ -474,6 +474,7 @@ def process_database(fname):
         _dbphotos[uuid]['imagePath'] = row[11]
         _dbphotos[uuid]['extendedDescription'] = row[12]
         _dbphotos[uuid]['name'] = row[13]
+        _dbphotos[uuid]['isMissing'] = row[14]
         do_log("Fetching data for photo %d %s %s %s %s %s: %s" %
               (i, uuid, _dbphotos[uuid]['masterUuid'], _dbphotos[uuid]['volumeId'], 
               _dbphotos[uuid]['filename'], _dbphotos[uuid]['extendedDescription'], 
@@ -514,7 +515,7 @@ def process_database(fname):
         do_log("Removing temporary databse file" + tmp_db)
         os.remove(tmp_db)
     except:
-        warn("Could not remove temporary database" + tmp_db)
+        print("Could not remove temporary database: " + tmp_db,file=sys.stderr)
 
     if _debug:
         pp = pprint.PrettyPrinter(indent=4)
@@ -584,8 +585,7 @@ def process_photo(uuid, photopath):
     global _dbphotos
 
     if not check_file_exists(photopath):
-        warn("WARNING: photo %s does not appear to exist; skipping" % photopath)
-        #todo: should this be a fatal error?
+        print("WARNING: photo %s does not appear to exist; skipping" % (photopath), file=sys.stderr)
         return
     
     #get existing metadata
@@ -824,13 +824,16 @@ def main():
         else:
             photopath = os.path.join(masters_path, _dbphotos[uuid]['imagePath'])
 
+        if _dbphotos[uuid]['isMissing'] == 1:
+            print("Skipping photo not downloaded from cloud: %s" % (photopath))
+            continue
+
+        #todo: need more robust test interface--process_photo should show what it would do
         if not _args.test:
             print("processing photo: %s " % (photopath))
             process_photo(uuid, photopath)
         else:
             print("TEST: processing photo: %s " % (photopath))
-            process_photo(uuid, photopath)
-
 
     # start Photos again
     # zzz scpt_launch.run()
