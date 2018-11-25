@@ -1,3 +1,4 @@
+.gitignore
 *.out
 t.*
 *.db

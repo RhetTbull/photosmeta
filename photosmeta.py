@@ -1,16 +1,9 @@
-#!/Users/rhet/anaconda3/bin/python
-
+#! /usr/bin/env python3
 '''
-todo: when writing meta data, zero the info first then add keywords also option to merge
 todo: do ratings? XMP:Ratings, XMP:RatingsPercent
-todo: include XMP:TagsList
 todo: position data (lat / lon)
-todo: uuid 
 todo: option to export then apply tags (e.g. don't tag original)
 todo: cleanup single/double quotes
-todo: cleanup temp file
-
-todo: what to do with "None" in PersonInImage (Photos recognizes face but no name)
 
 todo: add end of func comment marker
 todo: standardize/cleanup exception handling in helper functions
@@ -25,13 +18,12 @@ todo: right now, options (keyword, person, etc) are OR...add option for AND
         e.g. only process photos in album=Test AND person=Joe
 todo: options to add:
 --save_backup (save original file)
---keep_original_metadata
 --export (export file instead of edit in place)
 
 todo: test cases: 
-    1) photo edited in Photos 
+    1) photo edited in Photos
     2) photo edited in external editor 
-    3) photo where original in cloud but not on device
+    3) photo where original in cloud but not on device (RKMaster.isMissing)
 
 See also:
     https://github.com/orangeturtle739/photos-export
@@ -122,6 +114,8 @@ def process_arguments():
                         help="database file [will default to Photos default file]")
     parser.add_argument("-v", "--verbose", action="store_true", default=False,
                         help="print verbose output",)
+    parser.add_argument("-f", "--force", action="store_true", default=False,
+                        help="Do not prompt before processing",)
     parser.add_argument("--debug", action="store_true", default=False,
                         help="enable debug output",) #TODO: eventually remove this
     parser.add_argument("--test", action="store_true", default=False,
@@ -216,7 +210,7 @@ def copy_db_file(fname):
     #returns the name of the temp file
     #required because python's sqlite3 implementation can't read a locked file
     fd, tmp = tempfile.mkstemp(suffix=".db",prefix="photos")
-    do_log("copying " + fname +" to " + tmp)
+    verbose("copying " + fname +" to " + tmp)
     try:
         copyfile(fname,tmp)
     except:
@@ -262,7 +256,6 @@ def close_pbar_status():
     _pbar_status_text = ""
 
 # Various AppleScripts we need
-
 def setup_applescript():
     global scpt_export
     global scpt_launch
@@ -299,28 +292,29 @@ def setup_applescript():
         ''')
 
 
-def do_log(s):
+def verbose(s):
+    #print output only if global _verbose is True
     if(_verbose):
         print(s)
 
 
 def open_sql_file(file):
     fname = file
-    do_log("Trying to open database %s" % (fname))
+    verbose("Trying to open database %s" % (fname))
     try:
         conn = sqlite3.connect("%s" % (fname))
         c = conn.cursor()
     except sqlite3.Error as e:
         print("An error occurred: %s %s" % (e.args[0], fname))
         sys.exit(3)
-    do_log("SQLite database is open")
+    verbose("SQLite database is open")
     return(conn, c)
 
 def get_exiftool_path():
     global _exiftool
     result = subprocess.run(['which', 'exiftool'], stdout=subprocess.PIPE)
     exiftool_path = result.stdout.decode('utf-8')
-    do_log("exiftool path = %s" % (exiftool_path))
+    verbose("exiftool path = %s" % (exiftool_path))
     if exiftool_path is not "":
         return exiftool_path.rstrip()
     else:
@@ -346,10 +340,10 @@ def process_database(fname):
 
     tmp_db = copy_db_file(fname)
     (conn, c) = open_sql_file(tmp_db)
-    do_log("Have connection with database")
+    verbose("Have connection with database")
 
     # Look for all combinations of persons and pictures
-    do_log("Getting information about persons")
+    verbose("Getting information about persons")
 
     i = 0
     c.execute(
@@ -361,6 +355,9 @@ def process_database(fname):
             + "and RKVersion.type = 2 and RKVersion.masterUuid = RKMaster.uuid and "
             + "RKVersion.filename not like '%.pdf'")
     for person in c:
+        if person[0] == None:
+            print("skipping person = None %s" % person[1])
+            continue
         if not person[1] in _dbfaces_uuid:
             _dbfaces_uuid[person[1]] = []
         if not person[0] in _dbfaces_person:
@@ -369,10 +366,10 @@ def process_database(fname):
         _dbfaces_person[person[0]].append(person[1])
         set_pbar_status(i)
         i = i + 1
-    do_log("Finished walking through persons")
+    verbose("Finished walking through persons")
     close_pbar_status()
 
-    do_log("Getting information about albums")
+    verbose("Getting information about albums")
     i = 0
     c.execute("select count(*) from RKAlbum, RKVersion, RKAlbumVersion where "
             + "RKAlbum.modelID = RKAlbumVersion.albumId and "
@@ -392,13 +389,13 @@ def process_database(fname):
             _dbalbums_album[album[0]] = []
         _dbalbums_uuid[album[1]].append(album[0])
         _dbalbums_album[album[0]].append(album[1])
-        do_log("%s %s" % (album[1], album[0]))
+        verbose("%s %s" % (album[1], album[0]))
         set_pbar_status(i)
         i = i + 1
-    do_log("Finished walking through albums")
+    verbose("Finished walking through albums")
     close_pbar_status()
 
-    do_log("Getting information about keywords")
+    verbose("Getting information about keywords")
     c.execute("select count(*) from RKKeyword, RKKeywordForVersion,RKVersion, RKMaster "
               + "where RKKeyword.modelId = RKKeyWordForVersion.keywordID and "
               + "RKVersion.modelID = RKKeywordForVersion.versionID and RKMaster.uuid = "
@@ -418,26 +415,26 @@ def process_database(fname):
             _dbkeywords_keyword[keyword[0]] = []
         _dbkeywords_uuid[keyword[1]].append(keyword[0])
         _dbkeywords_keyword[keyword[0]].append(keyword[1])
-        do_log("%s %s" % (keyword[1], keyword[0]))
+        verbose("%s %s" % (keyword[1], keyword[0]))
         set_pbar_status(i)
         i = i + 1
-    do_log("Finished walking through keywords")
+    verbose("Finished walking through keywords")
     close_pbar_status()
 
-    do_log("Getting information about volumes")
+    verbose("Getting information about volumes")
     c.execute("select count(*) from RKVolume")
     init_pbar_status("Volumes", c.fetchone()[0])
     c.execute("select RKVolume.modelId, RKVolume.name from RKVolume")
     i = 0
     for vol in c:
         _dbvolumes[vol[0]] = vol[1]
-        do_log("%s %s" % (vol[0], vol[1]))
+        verbose("%s %s" % (vol[0], vol[1]))
         set_pbar_status(i)
         i = i + 1
-    do_log("Finished walking through volumes")
+    verbose("Finished walking through volumes")
     close_pbar_status()
 
-    do_log("Getting information about photos")
+    verbose("Getting information about photos")
     c.execute("select count(*) from RKVersion, RKMaster where RKVersion.isInTrash = 0 and " 
             + "RKVersion.type = 2 and RKVersion.masterUuid = RKMaster.uuid and "
             + "RKVersion.filename not like '%.pdf'")
@@ -454,7 +451,8 @@ def process_database(fname):
         set_pbar_status(i)
         i = i + 1
         uuid = row[0]
-        do_log("i = %d, uuid = '%s, master = '%s" % (i, uuid, row[2]))
+        if _debug:
+            print("i = %d, uuid = '%s, master = '%s" % (i, uuid, row[2]))
         _dbphotos[uuid] = {}
         _dbphotos[uuid]['modelID'] = row[1]
         _dbphotos[uuid]['masterUuid'] = row[2]
@@ -475,7 +473,7 @@ def process_database(fname):
         _dbphotos[uuid]['extendedDescription'] = row[12]
         _dbphotos[uuid]['name'] = row[13]
         _dbphotos[uuid]['isMissing'] = row[14]
-        do_log("Fetching data for photo %d %s %s %s %s %s: %s" %
+        verbose("Fetching data for photo %d %s %s %s %s %s: %s" %
               (i, uuid, _dbphotos[uuid]['masterUuid'], _dbphotos[uuid]['volumeId'], 
               _dbphotos[uuid]['filename'], _dbphotos[uuid]['extendedDescription'], 
               _dbphotos[uuid]['imageDate']))
@@ -512,7 +510,7 @@ def process_database(fname):
 
     #remove temporary copy of the databse
     try:
-        do_log("Removing temporary databse file" + tmp_db)
+        verbose("Removing temporary databse file" + tmp_db)
         os.remove(tmp_db)
     except:
         print("Could not remove temporary database: " + tmp_db,file=sys.stderr)
@@ -554,13 +552,13 @@ def get_exif_info_as_json(photopath):
         proc = subprocess.run(exif_cmd, check=True, shell=True, 
                             stdout=subprocess.PIPE) 
     except subprocess.CalledProcessError as e:
-        print("subprocess error calling command %s: " % exif_cmd, e)
-        sys.exit(1)
+        sys.exit("subprocess error calling command %s %s: " % (exif_cmd, e))
     else:
-        do_log('returncode: %d' % proc.returncode)
-        do_log('Have {} bytes in stdout:\n{}'.format(
-            len(proc.stdout),
-            proc.stdout.decode('utf-8')))
+        if _debug:
+            print('returncode: %d' % proc.returncode)
+            print('Have {} bytes in stdout:\n{}'.format(
+                len(proc.stdout),
+                proc.stdout.decode('utf-8')))
 
     j = json.loads(proc.stdout.decode('utf-8').rstrip('\r\n'))
 
@@ -591,31 +589,29 @@ def process_photo(uuid, photopath):
     #get existing metadata
     j = get_exif_info_as_json(photopath)
     
-    do_log(j)
+    if _debug:
+        print("json metadata for %s = %s" % (photopath, j))
 
     keywords = None
     persons = None
 
     keywords_raw = None
 
-    #todo: merge list
     if uuid in _dbkeywords_uuid:
         #merge existing keywords, removing duplicates
         tmp1 = j[0]['IPTC:Keywords'] if 'IPTC:Keywords' in j[0] else None
         tmp2 = j[0]['XMP:TagsList'] if 'XMP:TagsList' in j[0] else None
         keywords_raw = build_list([_dbkeywords_uuid[uuid],tmp1, tmp2])
-        keywords_raw = set(keywords_raw)
+        keywords_raw = set(keywords_raw)       
         keywords = [ "-XMP:TagsList='%s' -keywords='%s'" % (x, x) for x in keywords_raw ]
-
+        
     if uuid in _dbfaces_uuid:
         tmp1 = j[0]['XMP:Subject'] if 'XMP:Subject' in j[0] else None
         tmp2 = j[0]['XMP:PersonInImage'] if 'XMP:PersonInImage' in j[0] else None
+#        print ("photopath %s tmp1 = '%s' tmp2 = '%s'" % (photopath, tmp1, tmp2))
         tmp = build_list([_dbfaces_uuid[uuid],tmp1, tmp2])
         tmp = set(tmp)
         persons =  [ "-xmp:PersonInImage='%s' -subject='%s'" % (x, x) for x in tmp ]
-
-    #print("KEYWORDS: %s" % keywords)
-    #print("PERSONS: %s" % persons)
 
     k = ''
     p = ''
@@ -630,16 +626,12 @@ def process_photo(uuid, photopath):
     if desc:
         d = "-ImageDescription='%s' -xmp:description='%s'" % (desc, desc)
 
-    #print("DESC: %s" % desc)
-
     #title = name
     title = ''
     title = title or _dbphotos[uuid]['name']
     t = ''
     if title:
         t = "-xmp:title='%s'" % (title)
-
-    #print("TITLE: %s" % title)
 
     #todo: if nothing to do then skip
     
@@ -651,6 +643,7 @@ def process_photo(uuid, photopath):
 
     #-P = preserve timestamp
     exif_cmd = "%s %s %s %s %s %s -P '%s'" % (_exiftool, k, p, d, t, inplace, photopath)
+
     print("running: %s" % (exif_cmd)) #todo: make this a verbose option
     
     if not _args.test:
@@ -659,14 +652,14 @@ def process_photo(uuid, photopath):
             proc = subprocess.run(exif_cmd, check=True, shell=True, 
                                 stdout=subprocess.PIPE) 
         except subprocess.CalledProcessError as e:
-            print("subprocess error calling command %s: " % exif_cmd, e)
-            sys.exit(1)
+            sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
         else:
-            do_log('returncode: %d' % proc.returncode)
-            do_log('Have {} bytes in stdout:\n{}'.format(
-                len(proc.stdout),
-                proc.stdout.decode('utf-8')))
-            print(proc.stdout.decode('utf-8')) #todo: make this a verbose option
+            if _debug:
+                print('returncode: %d' % proc.returncode)
+                print('Have {} bytes in stdout:\n{}'.format(
+                    len(proc.stdout),
+                    proc.stdout.decode('utf-8')))
+                verbose(proc.stdout.decode('utf-8')) 
 
     #update xattr tags if requested
     xattr_cmd = None
@@ -674,26 +667,28 @@ def process_photo(uuid, photopath):
         xattr_cmd = 'xattr -w com.apple.metadata:_kMDItemUserTags '
         taglist = build_list(list(keywords_raw))
         tags = ["<string>%s</string>" % (x) for x in taglist]
-        plist = (   '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
-                    '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">'
-                    '<array>%s</array></plist>' % ' '.join(tags) )
+        plist = '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"' \
+                '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">' \
+                '<array>%s</array></plist>' % ' '.join(tags) 
 
         xattr_cmd = "%s '%s' '%s'" % (xattr_cmd, plist, photopath)
+
         print("applying extended attributes")
-        do_log("xattr_cmd: %s" % xattr_cmd)
+        if _debug:
+            print("xattr_cmd: %s" % xattr_cmd)
 
         if  not _args.test:
             try:
                 proc = subprocess.run(xattr_cmd, check=True, shell=True, 
                                         stdout=subprocess.PIPE) 
             except subprocess.CalledProcessError as e:
-                print("subprocess error calling command %s: " % xattr_cmd, e)
-                sys.exit(1)
+                sys.exit("subprocess error calling command %s %s" % (xattr_cmd, e))
             else:
-                do_log('returncode: %d' % proc.returncode)
-                do_log('Have {} bytes in stdout:\n{}'.format(
-                    len(proc.stdout),
-                    proc.stdout.decode('utf-8')))
+                if _debug:
+                    print('returncode: %d' % proc.returncode)
+                    print('Have {} bytes in stdout:\n{}'.format(
+                        len(proc.stdout),
+                        proc.stdout.decode('utf-8')))
         
     return
 
@@ -717,20 +712,29 @@ def main():
         print(_dbfile)
  
     filename = _dbfile
-    do_log("filename = %s" % filename)
+    verbose("filename = %s" % filename)
 
     #TODO: replace os.path with pathlib
     #TODO: clean this up -- we'll already know library_path
     library_path = os.path.dirname(filename)
     (library_path, tmp) = os.path.split(library_path)
     masters_path = os.path.join(library_path, "Masters")
-    do_log("library = %s, masters = %s" % (library_path, masters_path))
+    verbose("library = %s, masters = %s" % (library_path, masters_path))
 
     if (not check_file_exists(filename)):
-        filename = None
-        print("_dbfile %s does not exist" % filename)
-        sys.exit(1)
-    do_log("filename = %s" % filename)
+        sys.exit("_dbfile %s does not exist" % (filename))
+    
+    verbose("databse filename = %s" % filename)
+
+    if not _args.force:
+        #prompt user to continue
+        print("Caution: This script will modify your photos library")
+        print("Library: %s, database: %s" % (library_path, filename))
+        print("It is possible this will cause irreparable damage to your Photos library")
+        print("Use this script at your own risk")
+        ans = input("Type 'Y' to continue: ")
+        if ans.upper() != 'Y':
+            sys.exit(0)
 
     if any([_args.all, _args.album, _args.keyword, _args.person, _args.uuid]):
         process_database(filename)
@@ -836,6 +840,7 @@ def main():
             print("TEST: processing photo: %s " % (photopath))
 
     # start Photos again
-    # zzz scpt_launch.run()
+    # scpt_launch.run()
+
 if __name__ == "__main__":
     main()
