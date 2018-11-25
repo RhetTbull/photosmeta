@@ -1,4 +1,47 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
+
+# photosmeta
+# Copyright (c) 2018 Rhet Turnbull <rturnbull+git@gmail.com>
+#
+# Version 0.1
+#
+# This script will extract known metadata from Apple's Photos library and 
+# write this metadata to EXIF/IPTC/XMP fields in the photo file
+# For example: Photos knows about Faces (personInImage) but does not 
+# preserve this data when exporting the original photo
+#
+# Dependencies:
+#   exiftool by Phil Harvey: 
+#       https://www.sno.phy.queensu.ca/~phil/exiftool/
+#
+# This code was inspired by photo-export by Patrick Fältström see:
+#   https://github.com/patrikhson/photo-export
+#   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
+#
+# See also:
+#    https://github.com/orangeturtle739/photos-export
+#    https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation files
+# (the "Software"), to deal in the Software without restriction,
+# including without limitation the rights to use, copy, modify, merge,
+# publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so,
+# subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 '''
 todo: do ratings? XMP:Ratings, XMP:RatingsPercent
 todo: position data (lat / lon)
@@ -219,7 +262,8 @@ def copy_db_file(fname):
     return tmp
 
 # Handle progress bar (equivalent)
-# TODO: this has some linting issues
+# TODO: this code from https://github.com/patrikhson/photo-export
+#       it's not 
 # TODO: replace this code with https://pypi.org/project/progress/
 _pbar_status_text = ""
 _pbar_maxvalue = -1
@@ -242,7 +286,7 @@ def set_pbar_status(value):
                 _pbar_status_text, format('#' * int(progress * 30)), int(progress * 100)))
         else:
             #todo: this will produce an error theNum not defined
-            sys.stdout.write('\r%s: %d' % (_pbar_status_text, theNum))
+            sys.stdout.write('\r%s' % (_pbar_status_text))
         sys.stdout.flush()
 
 
