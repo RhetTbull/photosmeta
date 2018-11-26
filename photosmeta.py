@@ -5,6 +5,8 @@
 #
 # Version 0.1
 #
+# Tested with Mac OS 10.13.6 and Photos Version 3.0 (3291.13.210)
+#
 # This script will extract known metadata from Apple's Photos library and 
 # write this metadata to EXIF/IPTC/XMP fields in the photo file
 # For example: Photos knows about Faces (personInImage) but does not 
