@@ -808,7 +808,7 @@ def main():
         if ans.upper() != 'Y':
             sys.exit(0)
 
-    if any([_args.all, _args.album, _args.keyword, _args.person, _args.uuid]):
+    if any([_args.all, _args.album, _args.keyword, _args.person, _args.uuid, _args.list]):
         process_database(filename)
     else:
         print("database = " + filename)

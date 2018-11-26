@@ -2,6 +2,7 @@
 *.out
 t.*
 *.db
+*.spec
 *.log
 *.dump
 .vscode
