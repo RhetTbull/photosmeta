@@ -178,7 +178,9 @@ def process_arguments():
     parser.add_argument("--all", action='store_true', default=False,
                         help="export all photos in the database")
     parser.add_argument("--inplace", action='store_true', default=False,
-                        help="modify all photos in place (don't create backups)")
+                        help="modify all photos in place (don't create backups). " \
+                        "If you don't use this option, exiftool will create a backup image "\
+                        "with format filename.extension_original in the same folder as the original image")
     parser.add_argument("--xattrtag", action='store_true', default=False,
                         help="write tags/keywords to file's extended attributes (kMDItemUserTags) " \
                             "so you can search in spotlight using 'tag:' " \
