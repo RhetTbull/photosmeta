@@ -10,6 +10,18 @@
 # For example: Photos knows about Faces (personInImage) but does not 
 # preserve this data when exporting the original photo
 #
+# Metadata currently extracted and where it is placed:
+# Photos Faces --> XMP:PersonInImage, XMP:Subject
+# Photos keywords --> XMP:TagsList, IPTC:Keywords
+# Photos title --> XMP:Title
+# Photos description --> IPTC:Caption-Abstract, EXIF:ImageDescription, XMP:Description
+#
+# title and description are overwritten in the destination file
+# faces and keywords are merged with any data found in destination file (removing duplicates)
+#
+# Optionally, will write keywords and/or faces (persons) to 
+#   Mac OS native keywords (xattr kMDItemUserTags)
+#
 # Dependencies:
 #   exiftool by Phil Harvey: 
 #       https://www.sno.phy.queensu.ca/~phil/exiftool/
@@ -21,6 +33,9 @@
 # See also:
 #    https://github.com/orangeturtle739/photos-export
 #    https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
+#
+# NOTE: This is my very first python project. Using this script might
+# completely destroy your Photos library.  You have been warned! :-)
 #
 # Permission is hereby granted, free of charge, to any person
 # obtaining a copy of this software and associated documentation files
@@ -42,38 +57,26 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-'''
-todo: do ratings? XMP:Ratings, XMP:RatingsPercent
-todo: position data (lat / lon)
-todo: option to export then apply tags (e.g. don't tag original)
-todo: cleanup single/double quotes
-
-todo: add end of func comment marker
-todo: standardize/cleanup exception handling in helper functions
-
-todo: how are live photos handled
-todo: store person in XMP:Subject (that's what iPhoto does 
-    (it also stores keywords there)) on export with IPTC to XMP
-
-todo: use -stay_open with exiftool to aviod repeated subprocess calls
-
-todo: right now, options (keyword, person, etc) are OR...add option for AND
-        e.g. only process photos in album=Test AND person=Joe
-todo: options to add:
---save_backup (save original file)
---export (export file instead of edit in place)
-
-todo: test cases: 
-    1) photo edited in Photos
-    2) photo edited in external editor 
-    3) photo where original in cloud but not on device (RKMaster.isMissing)
-
-See also:
-    https://github.com/orangeturtle739/photos-export
-    https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
+### THINGS TODO ###
+# todo: progress bar for photos to process
+# todo: do ratings? XMP:Ratings, XMP:RatingsPercent
+# todo: position data (lat / lon)
+# todo: option to export then apply tags (e.g. don't tag original)
+# todo: cleanup single/double quotes
+# todo: standardize/cleanup exception handling in helper functions
+# todo: how are live photos handled
+# todo: use -stay_open with exiftool to aviod repeated subprocess calls
+# todo: right now, options (keyword, person, etc) are OR...add option for AND
+#         e.g. only process photos in album=Test AND person=Joe
+# todo: options to add:
+# --save_backup (save original file)
+# --export (export file instead of edit in place)
+# todo: test cases: 
+#     1) photo edited in Photos
+#     2) photo edited in external editor 
+#     3) photo where original in cloud but not on device (RKMaster.isMissing)
 
 
-'''
 
 import sys
 import os
@@ -142,6 +145,7 @@ class MyParser(argparse.ArgumentParser):
         sys.stderr.write('error: %s\n' % message)
         self.print_help()
         sys.exit(2)
+#class MyParser(argparse.ArgumentParser):
 
 def process_arguments():
     global _args
@@ -175,8 +179,17 @@ def process_arguments():
                         help="export all photos in the database")
     parser.add_argument("--inplace", action='store_true', default=False,
                         help="modify all photos in place (don't create backups)")
-    parser.add_argument("--xattr", action='store_true', default=False,
-                        help="write tags/keywords to file's extended attributes (kMDItemUserTags) so you can search in spotlight using 'tag:'")
+    parser.add_argument("--xattrtag", action='store_true', default=False,
+                        help="write tags/keywords to file's extended attributes (kMDItemUserTags) " \
+                            "so you can search in spotlight using 'tag:' " \
+                            "May be combined with -xattrperson " \
+                            "CAUTION: this overwrites all existing kMDItemUserTags (to be fixed in future release)")
+    parser.add_argument("--xattrperson", action='store_true', default=False,
+                        help="write person (faces) to file's extended attributes (kMDItemUserTags) " \
+                        "so you can search in spotlight using 'tag:' " \
+                        "May be combined with --xattrtag " \
+                        "CAUTION: this overwrites all existing kMDItemUserTags (to be fixed in future release)")
+
     parser.add_argument("--list", action='append',
                         help="list keywords, albums, persons found in database: " +
                         "--list=keyword, --list=album, --list=person")
@@ -193,6 +206,7 @@ def process_arguments():
 
     if _args.keyword is not None:
         print("keywords: " + " ".join(_args.keyword))
+#process_arguments
 
 def check_file_exists(filename):
     #returns true if file exists and is not a directory
@@ -260,6 +274,7 @@ def copy_db_file(fname):
         print("copying " + fname +" to " + tmp,file=sys.stderr)
         sys.exit()
     return tmp
+#copy_db_file
 
 # Handle progress bar (equivalent)
 # TODO: this code from https://github.com/patrikhson/photo-export
@@ -274,7 +289,7 @@ def init_pbar_status(text, max):
     print("init: %s %s" % (text, max))
     _pbar_status_text = text
     _pbar_maxvalue = max
-
+#init_pbar_status
 
 def set_pbar_status(value):
     global _pbar_status_text
@@ -288,7 +303,7 @@ def set_pbar_status(value):
             #todo: this will produce an error theNum not defined
             sys.stdout.write('\r%s' % (_pbar_status_text))
         sys.stdout.flush()
-
+#set_pbar_status
 
 def close_pbar_status():
     global _pbar_status_text
@@ -298,6 +313,7 @@ def close_pbar_status():
                          (_pbar_status_text, format('#' * 30), 100))
     _pbar_maxvalue = -1
     _pbar_status_text = ""
+#close_pbar_status
 
 # Various AppleScripts we need
 def setup_applescript():
@@ -334,13 +350,13 @@ def setup_applescript():
           end tell
         end run
         ''')
-
+#setup_applescript
 
 def verbose(s):
     #print output only if global _verbose is True
     if(_verbose):
         print(s)
-
+#verbose
 
 def open_sql_file(file):
     fname = file
@@ -353,6 +369,7 @@ def open_sql_file(file):
         sys.exit(3)
     verbose("SQLite database is open")
     return(conn, c)
+#open_sql_file
 
 def get_exiftool_path():
     global _exiftool
@@ -364,7 +381,7 @@ def get_exiftool_path():
     else:
         errstr = "Could not find exiftool"
         sys.exit(errstr)
-
+#get_exiftool_path
 
 def process_database(fname):
     global _dbphotos
@@ -400,7 +417,7 @@ def process_database(fname):
             + "RKVersion.filename not like '%.pdf'")
     for person in c:
         if person[0] == None:
-            print("skipping person = None %s" % person[1])
+            verbose("skipping person = None %s" % person[1])
             continue
         if not person[1] in _dbfaces_uuid:
             _dbfaces_uuid[person[1]] = []
@@ -581,6 +598,7 @@ def process_database(fname):
 
         print("Photos:")
         pp.pprint(_dbphotos)
+#process_database
 
 def get_exif_info_as_json(photopath):
     #get exif info from file as JSON via exiftool
@@ -607,6 +625,7 @@ def get_exif_info_as_json(photopath):
     j = json.loads(proc.stdout.decode('utf-8').rstrip('\r\n'))
 
     return j
+#get_exif_info_as_json
 
 def build_list(lst):
     #takes an array of elements that may be a string or list
@@ -619,7 +638,7 @@ def build_list(lst):
             else:
                 tmplst.append(x)
     return tmplst
-
+#build_list
 
 def process_photo(uuid, photopath):
     #process a photo using exiftool
@@ -640,6 +659,7 @@ def process_photo(uuid, photopath):
     persons = None
 
     keywords_raw = None
+    persons_raw = None
 
     if uuid in _dbkeywords_uuid:
         #merge existing keywords, removing duplicates
@@ -653,9 +673,9 @@ def process_photo(uuid, photopath):
         tmp1 = j[0]['XMP:Subject'] if 'XMP:Subject' in j[0] else None
         tmp2 = j[0]['XMP:PersonInImage'] if 'XMP:PersonInImage' in j[0] else None
 #        print ("photopath %s tmp1 = '%s' tmp2 = '%s'" % (photopath, tmp1, tmp2))
-        tmp = build_list([_dbfaces_uuid[uuid],tmp1, tmp2])
-        tmp = set(tmp)
-        persons =  [ "-xmp:PersonInImage='%s' -subject='%s'" % (x, x) for x in tmp ]
+        persons_raw = build_list([_dbfaces_uuid[uuid],tmp1, tmp2])
+        persons_raw = set(persons_raw)
+        persons =  [ "-xmp:PersonInImage='%s' -subject='%s'" % (x, x) for x in persons_raw ]
 
     k = ''
     p = ''
@@ -686,9 +706,10 @@ def process_photo(uuid, photopath):
     #print("INPLACE: %s" % inplace)
 
     #-P = preserve timestamp
+    #todo: check to see if there's any reason to run exiftool (e.g. do nothing if k, p, d, t all none)
     exif_cmd = "%s %s %s %s %s %s -P '%s'" % (_exiftool, k, p, d, t, inplace, photopath)
 
-    print("running: %s" % (exif_cmd)) #todo: make this a verbose option
+    verbose("running: %s" % (exif_cmd)) 
     
     if not _args.test:
         try:
@@ -703,13 +724,17 @@ def process_photo(uuid, photopath):
                 print('Have {} bytes in stdout:\n{}'.format(
                     len(proc.stdout),
                     proc.stdout.decode('utf-8')))
-                verbose(proc.stdout.decode('utf-8')) 
+            verbose(proc.stdout.decode('utf-8')) 
 
     #update xattr tags if requested
     xattr_cmd = None
-    if _args.xattr and keywords_raw:
+    if (_args.xattrtag and keywords_raw) or (_args.xattrperson and persons_raw):
         xattr_cmd = 'xattr -w com.apple.metadata:_kMDItemUserTags '
-        taglist = build_list(list(keywords_raw))
+        taglist = []
+        if _args.xattrtag and keywords_raw:
+            taglist = build_list([taglist, list(keywords_raw)])
+        if _args.xattrperson and persons_raw:
+            taglist = build_list([taglist, list(persons_raw)])
         tags = ["<string>%s</string>" % (x) for x in taglist]
         plist = '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"' \
                 '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">' \
@@ -735,6 +760,7 @@ def process_photo(uuid, photopath):
                         proc.stdout.decode('utf-8')))
         
     return
+#process_photo
 
 def main():
     global _verbose
@@ -885,6 +911,7 @@ def main():
 
     # start Photos again
     # scpt_launch.run()
+#main
 
 if __name__ == "__main__":
     main()
