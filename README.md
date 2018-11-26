@@ -1,29 +1,75 @@
-# README #
+### Summary ###
+This script will extract known metadata from Apple's Photos library and 
+write this metadata to EXIF/IPTC/XMP fields in the photo file
+For example: Photos knows about Faces (personInImage) but does not 
+preserve this data when exporting the original photo
 
-This README would normally document whatever steps are necessary to get your application up and running.
+Metadata currently extracted and where it is placed:
+Photos Faces --> XMP:PersonInImage, XMP:Subject
+Photos keywords --> XMP:TagsList, IPTC:Keywords
+Photos title --> XMP:Title
+Photos description --> IPTC:Caption-Abstract, EXIF:ImageDescription, XMP:Description
 
-### What is this repository for? ###
+title and description are overwritten in the destination file
+faces and keywords are merged with any data found in destination file (removing duplicates)
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+Optionally, will write keywords and/or faces (persons) to 
+  Mac OS native keywords (xattr kMDItemUserTags)
 
-### How do I get set up? ###
+### Dependencies ###
+  exiftool by Phil Harvey: 
+      https://www.sno.phy.queensu.ca/~phil/exiftool/
 
-* Summary of set up
-* Configuration
-* Dependencies
-* Database configuration
-* How to run tests
-* Deployment instructions
+This code was inspired by photo-export by Patrick Fältström see:
+  https://github.com/patrikhson/photo-export
+  Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
-### Contribution guidelines ###
+### See Also ###
+   https://github.com/orangeturtle739/photos-export
+   https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
 
-* Writing tests
-* Code review
-* Other guidelines
 
-### Who do I talk to? ###
+### Warning ###
+NOTE: This is my very first python project. Using this script might
+completely destroy your Photos library.  You have been warned! :-)
 
-* Repo owner or admin
-* Other community or team contact
+### License ###
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## Things To-Do ###
+todo: progress bar for photos to process
+todo: do ratings? XMP:Ratings, XMP:RatingsPercent
+todo: position data (lat / lon)
+todo: option to export then apply tags (e.g. don't tag original)
+todo: cleanup single/double quotes
+todo: standardize/cleanup exception handling in helper functions
+todo: how are live photos handled
+todo: use -stay_open with exiftool to aviod repeated subprocess calls
+todo: right now, options (keyword, person, etc) are OR...add option for AND
+        e.g. only process photos in album=Test AND person=Joe
+todo: options to add:
+--save_backup (save original file)
+--export (export file instead of edit in place)
+todo: test cases: 
+    1) photo edited in Photos
+    2) photo edited in external editor 
+    3) photo where original in cloud but not on device (RKMaster.isMissing)
