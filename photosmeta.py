@@ -377,10 +377,13 @@ def get_exiftool_path():
     global _exiftool
     result = subprocess.run(['which', 'exiftool'], stdout=subprocess.PIPE)
     exiftool_path = result.stdout.decode('utf-8')
-    verbose("exiftool path = %s" % (exiftool_path))
+    if _debug:
+        print("exiftool path = %s" % (exiftool_path))
     if exiftool_path is not "":
         return exiftool_path.rstrip()
     else:
+        print("Could not find exiftool. Please download and install from " \
+                "https://www.sno.phy.queensu.ca/~phil/exiftool/", file=sys.stderr)
         errstr = "Could not find exiftool"
         sys.exit(errstr)
 #get_exiftool_path
@@ -707,26 +710,29 @@ def process_photo(uuid, photopath):
 
     #print("INPLACE: %s" % inplace)
 
-    #-P = preserve timestamp
-    #todo: check to see if there's any reason to run exiftool (e.g. do nothing if k, p, d, t all none)
-    exif_cmd = "%s %s %s %s %s %s -P '%s'" % (_exiftool, k, p, d, t, inplace, photopath)
+    #only run exiftool if something to update
+    if k or p or d or t:
+        # -P = preserve timestamp
+        exif_cmd = "%s %s %s %s %s %s -P '%s'" % (_exiftool, k, p, d, t, inplace, photopath)
 
-    verbose("running: %s" % (exif_cmd)) 
-    
-    if not _args.test:
-        try:
-            #[_exiftool, k, p, d, t, inplace, photopath]
-            proc = subprocess.run(exif_cmd, check=True, shell=True, 
-                                stdout=subprocess.PIPE) 
-        except subprocess.CalledProcessError as e:
-            sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
-        else:
-            if _debug:
-                print('returncode: %d' % proc.returncode)
-                print('Have {} bytes in stdout:\n{}'.format(
-                    len(proc.stdout),
-                    proc.stdout.decode('utf-8')))
-            verbose(proc.stdout.decode('utf-8')) 
+        verbose("running: %s" % (exif_cmd)) 
+        
+        if not _args.test:
+            try:
+                #[_exiftool, k, p, d, t, inplace, photopath]
+                proc = subprocess.run(exif_cmd, check=True, shell=True, 
+                                    stdout=subprocess.PIPE) 
+            except subprocess.CalledProcessError as e:
+                sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
+            else:
+                if _debug:
+                    print('returncode: %d' % proc.returncode)
+                    print('Have {} bytes in stdout:\n{}'.format(
+                        len(proc.stdout),
+                        proc.stdout.decode('utf-8')))
+                verbose(proc.stdout.decode('utf-8')) 
+    else:
+        verbose("Skipping photo %s, nothing to do" % (photopath))
 
     #update xattr tags if requested
     xattr_cmd = None
@@ -745,8 +751,7 @@ def process_photo(uuid, photopath):
         xattr_cmd = "%s '%s' '%s'" % (xattr_cmd, plist, photopath)
 
         print("applying extended attributes")
-        if _debug:
-            print("xattr_cmd: %s" % xattr_cmd)
+        verbose("running: %s" % xattr_cmd)
 
         if  not _args.test:
             try:
