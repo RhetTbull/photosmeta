@@ -77,6 +77,9 @@
 #     1) photo edited in Photos
 #     2) photo edited in external editor 
 #     3) photo where original in cloud but not on device (RKMaster.isMissing)
+# todo: Add other xattr metadata such as kMDItemAlbum? 
+#   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
+
 
 
 
