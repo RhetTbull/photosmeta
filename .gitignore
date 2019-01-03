@@ -11,3 +11,5 @@ build/
 dist/
 scratch/
 
+*.code-workspace
+*.t
