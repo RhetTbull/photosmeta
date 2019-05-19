@@ -1,0 +1,6 @@
+# pip install -r requirements.txt  
+
+pyobjc-core
+pyobjc
+py-applescript
+

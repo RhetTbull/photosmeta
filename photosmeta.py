@@ -742,7 +742,7 @@ def process_photo(uuid, photopath):
     #update xattr tags if requested
     xattr_cmd = None
     if (_args.xattrtag and keywords_raw) or (_args.xattrperson and persons_raw):
-        xattr_cmd = 'xattr -w com.apple.metadata:_kMDItemUserTags '
+        xattr_cmd = '/usr/bin/xattr -w com.apple.metadata:_kMDItemUserTags '
         taglist = []
         if _args.xattrtag and keywords_raw:
             taglist = build_list([taglist, list(keywords_raw)])
