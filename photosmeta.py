@@ -418,13 +418,18 @@ def process_database(fname):
 
     i = 0
     c.execute(
-        "select count(*) from RKFace, RKPerson where RKFace.personID = RKperson.modelID")
+            "select count(*) from RKFace, RKPerson, RKVersion where RKFace.personID = RKperson.modelID "
+            + "and RKFace.imageModelId = RKVersion.modelId and RKVersion.isInTrash = 0"
+        )
     init_pbar_status("Faces", c.fetchone()[0])
     # c.execute("select RKPerson.name, RKFace.imageID from RKFace, RKPerson where RKFace.personID = RKperson.modelID")
-    c.execute("select RKPerson.name, RKVersion.uuid from RKFace, RKPerson, RKVersion, RKMaster "
+
+    c.execute(
+            "select RKPerson.name, RKVersion.uuid from RKFace, RKPerson, RKVersion, RKMaster "
             + "where RKFace.personID = RKperson.modelID and RKVersion.modelId = RKFace.ImageModelId "
             + "and RKVersion.type = 2 and RKVersion.masterUuid = RKMaster.uuid and "
-            + "RKVersion.filename not like '%.pdf'")
+            + "RKVersion.filename not like '%.pdf' and RKVersion.isInTrash = 0"
+        )   
     for person in c:
         if person[0] == None:
             verbose("skipping person = None %s" % person[1])
