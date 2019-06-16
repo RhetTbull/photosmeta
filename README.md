@@ -28,9 +28,12 @@ This code was inspired by photo-export by Patrick Fältström see:
   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 ### See Also ###
-   https://github.com/orangeturtle739/photos-export
 
-   https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
+   [osxphotos](https://github.com/RhetTbull/osxphotos) python module for manipulating Apple's Photos library
+	
+   [photos-export](https://github.com/orangeturtle739/photos-export) does something similar for older versions of the Photos database
+
+   [pyexifinfo](https://github.com/guinslym/pyexifinfo) Python wrapper for [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/)
 
 
 ### Warning ###
