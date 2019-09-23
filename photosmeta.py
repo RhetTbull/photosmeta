@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 
 # photosmeta
-# Copyright (c) 2018 Rhet Turnbull <rturnbull+git@gmail.com>
-#
-# Version 0.15
+# Copyright (c) 2019 Rhet Turnbull <rturnbull+git@gmail.com>
 #
 # Tested with Mac OS 10.13.6 and Photos Version 3.0 (3291.13.210)
 #
@@ -32,13 +30,6 @@
 #   https://github.com/patrikhson/photo-export
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
-# See also:
-#    https://github.com/orangeturtle739/photos-export
-#    https://github.com/guinslym/pyexifinfo/tree/master/pyexifinfo
-
-# NOTE: This is my very first python project. Using this script might
-# completely destroy your Photos library.  You have been warned! :-)
-
 # ## THINGS TODO ###
 # todo: progress bar for photos to process
 # todo: do ratings? XMP:Ratings, XMP:RatingsPercent
@@ -61,27 +52,28 @@
 #   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
 
 
-import sys
-import os
-import re
-import pprint
-import plistlib
-import sqlite3
-from datetime import datetime
-import time
-import subprocess
-import os.path
 import argparse
-from pathlib import Path
-import objc
-from Foundation import *
-import CoreFoundation
+import json
+import os
+import os.path
+import plistlib
+import pprint
+import re
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import time
 import urllib.parse
-import applescript
+from datetime import datetime
+from pathlib import Path
 from plistlib import load
 from shutil import copyfile
-import tempfile
-import json
+
+import CoreFoundation
+import objc
+from Foundation import *
+import applescript
 
 # Globals
 _debug = False
@@ -718,10 +710,10 @@ def get_exif_info_as_json(photopath):
         return
 
     _exiftool = get_exiftool_path()
-    exif_cmd = "%s %s %s %s '%s'" % (_exiftool, "-G", "-j", "-sort", photopath)
+    exif_cmd = [_exiftool, "-G", "-j", "-sort", photopath]
 
     try:
-        proc = subprocess.run(exif_cmd, check=True, shell=True, stdout=subprocess.PIPE)
+        proc = subprocess.run(exif_cmd, check=True, stdout=subprocess.PIPE)
     except subprocess.CalledProcessError as e:
         sys.exit("subprocess error calling command %s %s: " % (exif_cmd, e))
     else:
@@ -762,6 +754,8 @@ def process_photo(uuid, photopath):
     global _args
     global _dbphotos
 
+    exif_cmd = []
+
     if not check_file_exists(photopath):
         print(
             "WARNING: photo %s does not appear to exist; skipping" % (photopath),
@@ -787,7 +781,9 @@ def process_photo(uuid, photopath):
         tmp2 = j[0]["XMP:TagsList"] if "XMP:TagsList" in j[0] else None
         keywords_raw = build_list([_dbkeywords_uuid[uuid], tmp1, tmp2])
         keywords_raw = set(keywords_raw)
-        keywords = ["-XMP:TagsList='%s' -keywords='%s'" % (x, x) for x in keywords_raw]
+        for keyword in keywords_raw:
+            exif_cmd.append(f"-XMP:TagsList={keyword}")
+            exif_cmd.append(f"-keywords={keyword}")
 
     if uuid in _dbfaces_uuid:
         tmp1 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
@@ -795,59 +791,40 @@ def process_photo(uuid, photopath):
         #        print ("photopath %s tmp1 = '%s' tmp2 = '%s'" % (photopath, tmp1, tmp2))
         persons_raw = build_list([_dbfaces_uuid[uuid], tmp1, tmp2])
         persons_raw = set(persons_raw)
-        persons = [
-            "-xmp:PersonInImage='%s' -subject='%s'" % (x, x) for x in persons_raw
-        ]
-
-    k = ""
-    p = ""
-    if keywords:
-        k = " ".join(keywords)
-    if persons:
-        p = " ".join(persons)
+        for person in persons_raw:
+            exif_cmd.append(f"-xmp:PersonInImage={person}")
+            exif_cmd.append(f"-subject={person}")
 
     desc = ""
     desc = desc or _dbphotos[uuid]["extendedDescription"]
-    d = ""
     if desc:
-        d = "-ImageDescription='%s' -xmp:description='%s'" % (desc, desc)
+        exif_cmd.append(f"-ImageDescription={desc}")
+        exif_cmd.append(f"-xmp:description={desc}")
 
     # title = name
     title = ""
     title = title or _dbphotos[uuid]["name"]
-    t = ""
     if title:
-        t = "-xmp:title='%s'" % (title)
-
-    # todo: if nothing to do then skip
-
-    inplace = ""
-    if _args.inplace:
-        inplace = "-overwrite_original_in_place"
-
-    # print("INPLACE: %s" % inplace)
+        exif_cmd.append(f"-xmp:title={title}")
 
     # only run exiftool if something to update
-    if k or p or d or t:
-        # -P = preserve timestamp
-        exif_cmd = "%s %s %s %s %s %s -P '%s'" % (
-            _exiftool,
-            k,
-            p,
-            d,
-            t,
-            inplace,
-            photopath,
-        )
+    if exif_cmd:
+        if _args.inplace:
+            exif_cmd.append("-overwrite_original_in_place")
 
-        verbose("running: %s" % (exif_cmd))
+        # -P = preserve timestamp
+        exif_cmd.append("-P")
+
+        # add photopath as last argument
+        exif_cmd.append(photopath)
+        exif_cmd.insert(0,_exiftool)
+        verbose(f"running: {exif_cmd}")
 
         if not _args.test:
             try:
-                # [_exiftool, k, p, d, t, inplace, photopath]
-                proc = subprocess.run(
-                    exif_cmd, check=True, shell=True, stdout=subprocess.PIPE
-                )
+                # SECURITY NOTE: none of the args to exiftool are shell quoted
+                # as subprocess.run does this as long as shell=True is not used
+                proc = subprocess.run(exif_cmd, check=True, stdout=subprocess.PIPE)
             except subprocess.CalledProcessError as e:
                 sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
             else:
