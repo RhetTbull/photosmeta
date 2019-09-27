@@ -1,7 +1,6 @@
 altgraph==0.16.1
 certifi==2019.3.9
 cffi==1.12.3
-Click==7.0
 future==0.17.1
 macholib==1.11
 osxmetadata==0.96.87
@@ -109,4 +108,5 @@ pyobjc-framework-VideoToolbox==5.2
 pyobjc-framework-Vision==5.2
 pyobjc-framework-WebKit==5.2
 PyYAML==5.1.2
+tqdm==4.36.1
 xattr==0.9.6
