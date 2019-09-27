@@ -19,6 +19,17 @@ faces and keywords are merged with any data found in destination file (removing 
 Optionally, will write keywords and/or faces (persons) to
   Mac OS native keywords (xattr kMDItemUserTags)
 
+Installation
+------------
+
+I recommend using [pipx](https://github.com/pipxproject/pipx)
+
+`pipx install --spec git+https://github.com/RhetTbull/photosmeta.git photosmeta`
+
+or install using setup.py:
+
+`python setup.py install`
+
 ### Dependencies ###
   exiftool by Phil Harvey:
       https://www.sno.phy.queensu.ca/~phil/exiftool/

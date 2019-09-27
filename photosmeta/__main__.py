@@ -4,6 +4,7 @@
 # Copyright (c) 2019 Rhet Turnbull <rturnbull+git@gmail.com>
 #
 # Tested with Mac OS 10.13.6 and Photos Version 3.0 (3291.13.210)
+#    and with Mac OS 10.14.6 and Photos Version 4.0 (3461.7.140)
 #
 # This script will extract known metadata from Apple's Photos library and
 # write this metadata to EXIF/IPTC/XMP fields in the photo file
@@ -32,7 +33,8 @@
 
 # ## THINGS TODO ###
 # TODO: add missing option to list missing photos
-# todo: progress bar for photos to process
+# TODO: add --version
+# todo: progress bar for photos to process (use tqdm)
 # todo: do ratings? XMP:Ratings, XMP:RatingsPercent
 # todo: position data (lat / lon)
 # todo: option to export then apply tags (e.g. don't tag original)
@@ -55,7 +57,7 @@
 
 import argparse
 import json
-import os
+# import os
 import os.path
 import plistlib
 import pprint
@@ -71,15 +73,12 @@ from pathlib import Path
 from plistlib import load
 from shutil import copyfile
 
-import applescript
-import CoreFoundation
-import objc
 import osxmetadata
 import osxphotos
-from Foundation import *
 # from tqdm import tqdm
 
 # Globals
+_version = "1.1.0"
 _debug = False
 _exiftool = None  # will hold path to exiftools
 _args = None  # command line args as processed by argparse

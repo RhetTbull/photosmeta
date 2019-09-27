@@ -11,7 +11,7 @@ __pycache__
 build/
 dist/
 scratch/
-
+photosmeta.egg-info/
 *.code-workspace
 *.t
 .DS_Store
