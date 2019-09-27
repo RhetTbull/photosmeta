@@ -37,8 +37,7 @@ This code was inspired by photo-export by Patrick Fältström see:
 
 
 ### Warning ###
-NOTE: This is my very first python project. Using this script might
-completely destroy your Photos library.  You have been warned! :-)
+This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script.
 
 ### License ###
 
