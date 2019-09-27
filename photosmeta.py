@@ -804,41 +804,36 @@ def process_photo(photo):
 
     # update xattr tags if requested
     # TODO: update to use osxmetadata
-    xattr_cmd = None
     if (_args.xattrtag and keywords_raw) or (_args.xattrperson and persons_raw):
-        xattr_cmd = "/usr/bin/xattr -w com.apple.metadata:_kMDItemUserTags "
+        # xattr_cmd = "/usr/bin/xattr -w com.apple.metadata:_kMDItemUserTags "
         taglist = []
         if _args.xattrtag and keywords_raw:
             taglist = build_list([taglist, list(keywords_raw)])
         if _args.xattrperson and persons_raw:
             taglist = build_list([taglist, list(persons_raw)])
-        tags = ["<string>%s</string>" % (x) for x in taglist]
-        plist = (
-            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
-            '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">'
-            "<array>%s</array></plist>" % " ".join(tags)
-        )
+        # tags = ["<string>%s</string>" % (x) for x in taglist]
+        # plist = (
+        #     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
+        #     '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">'
+        #     "<array>%s</array></plist>" % " ".join(tags)
+        # )
 
-        xattr_cmd = "%s '%s' '%s'" % (xattr_cmd, plist, photopath)
+        # xattr_cmd = "%s '%s' '%s'" % (xattr_cmd, plist, photopath)
 
         print("applying extended attributes")
-        verbose("running: %s" % xattr_cmd)
+        # verbose("running: %s" % xattr_cmd)
 
         if not _args.test:
             try:
-                proc = subprocess.run(
-                    xattr_cmd, check=True, shell=True, stdout=subprocess.PIPE
-                )
-            except subprocess.CalledProcessError as e:
-                sys.exit("subprocess error calling command %s %s" % (xattr_cmd, e))
-            else:
-                if _debug:
-                    print("returncode: %d" % proc.returncode)
-                    print(
-                        "Have {} bytes in stdout:\n{}".format(
-                            len(proc.stdout), proc.stdout.decode("utf-8")
-                        )
-                    )
+                print(taglist)
+                meta = osxmetadata.OSXMetaData(photopath)
+                for tag in taglist:
+                    meta.tags += tag
+                # proc = subprocess.run(
+                #     xattr_cmd, check=True, shell=True, stdout=subprocess.PIPE
+                # )
+            except Exception as e:
+                sys.exit(f"Error: {e}")
 
     return
 
