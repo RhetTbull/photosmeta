@@ -32,6 +32,7 @@
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 # ## THINGS TODO ###
+# todo: fix progress bar/tqdm look at yep2tag
 # TODO: add missing option to list missing photos
 # TODO: add --version
 # todo: progress bar for photos to process (use tqdm)
