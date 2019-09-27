@@ -54,6 +54,7 @@
 # todo: Add other xattr metadata such as kMDItemAlbum?
 #   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
 
+#TODO: cleanup import list...many of these not needed for new version with osxphotos
 
 import argparse
 import json
@@ -77,6 +78,7 @@ import osxmetadata
 import osxphotos
 # from tqdm import tqdm
 
+# TODO: cleanup globals  -- most not needed now
 # Globals
 _version = "1.1.0"
 _debug = False
@@ -899,21 +901,21 @@ def main():
 
     if _args.list:
         if "keyword" in _args.list or "all" in _args.list:
-            print("Keywords/tags: ")
-            for keyword in photosdb.keywords:
-                print("\t%s" % keyword)
+            print("Keywords/tags (photo count): ")
+            for keyword, count in photosdb.keywords_as_dict().items():
+                print(f"\t{keyword} ({count})")
             print("-" * 60)
 
         if "person" in _args.list or "all" in _args.list:
-            print("Persons: ")
-            for person in photosdb.persons:
-                print("\t%s" % person)
+            print("Persons (photo count): ")
+            for person, count in photosdb.persons_as_dict().items():
+                print(f"\t{person} ({count})")
             print("-" * 60)
 
         if "album" in _args.list or "all" in _args.list:
-            print("Albums: ")
-            for album in photosdb.albums:
-                print("\t%s" % album)
+            print("Albums (photo count): ")
+            for album, count in photosdb.albums_as_dict().items():
+                print(f"\t{album} ({count})")
             print("-" * 60)
 
     photos = []
