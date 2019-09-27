@@ -70,13 +70,12 @@ from pathlib import Path
 from plistlib import load
 from shutil import copyfile
 
+import applescript
 import CoreFoundation
 import objc
 import osxmetadata
-from Foundation import *
-
-import applescript
 import osxphotos
+from Foundation import *
 
 # Globals
 _debug = False
@@ -125,7 +124,6 @@ class MyParser(argparse.ArgumentParser):
         sys.exit(2)
 
 
-# class MyParser(argparse.ArgumentParser):
 
 
 def process_arguments():
@@ -232,7 +230,6 @@ def process_arguments():
         print("keywords: " + " ".join(_args.keyword))
 
 
-# process_arguments
 
 
 def check_file_exists(filename):
@@ -243,7 +240,6 @@ def check_file_exists(filename):
     return os.path.exists(filename) and not os.path.isdir(filename)
 
 
-# check_file_exists
 
 
 def get_photos_library_path():
@@ -295,7 +291,6 @@ def get_photos_library_path():
         return None
 
 
-# get_photos_library_path
 
 
 def copy_db_file(fname):
@@ -312,7 +307,6 @@ def copy_db_file(fname):
     return tmp
 
 
-# copy_db_file
 
 # Handle progress bar (equivalent)
 # TODO: this code from https://github.com/patrikhson/photo-export
@@ -330,7 +324,6 @@ def init_pbar_status(text, max):
     _pbar_maxvalue = max
 
 
-# init_pbar_status
 
 
 def set_pbar_status(value):
@@ -353,8 +346,6 @@ def set_pbar_status(value):
         sys.stdout.flush()
 
 
-# set_pbar_status
-
 
 def close_pbar_status():
     global _pbar_status_text
@@ -367,7 +358,6 @@ def close_pbar_status():
     _pbar_status_text = ""
 
 
-# close_pbar_status
 
 # Various AppleScripts we need
 def setup_applescript():
@@ -413,7 +403,6 @@ def setup_applescript():
     )
 
 
-# setup_applescript
 
 
 def verbose(s):
@@ -422,7 +411,6 @@ def verbose(s):
         print(s)
 
 
-# verbose
 
 
 def open_sql_file(file):
@@ -438,7 +426,6 @@ def open_sql_file(file):
     return (conn, c)
 
 
-# open_sql_file
 
 
 def get_exiftool_path():
@@ -459,7 +446,6 @@ def get_exiftool_path():
         sys.exit(errstr)
 
 
-# get_exiftool_path
 
 
 def process_database(fname):
@@ -702,7 +688,6 @@ def process_database(fname):
         pp.pprint(_dbphotos)
 
 
-# process_database
 
 
 def get_exif_info_as_json(photopath):
@@ -733,7 +718,6 @@ def get_exif_info_as_json(photopath):
     return j
 
 
-# get_exif_info_as_json
 
 
 def build_list(lst):
@@ -749,7 +733,6 @@ def build_list(lst):
     return tmplst
 
 
-# build_list
 
 
 def process_photo(uuid, photopath):
@@ -882,7 +865,6 @@ def process_photo(uuid, photopath):
     return
 
 
-# process_photo
 
 
 def main():
@@ -1049,7 +1031,6 @@ def main():
     # scpt_launch.run()
 
 
-# main
 
 if __name__ == "__main__":
     main()
