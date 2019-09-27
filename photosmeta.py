@@ -124,8 +124,6 @@ class MyParser(argparse.ArgumentParser):
         sys.exit(2)
 
 
-
-
 def process_arguments():
     global _args
     global _verbose
@@ -230,16 +228,12 @@ def process_arguments():
         print("keywords: " + " ".join(_args.keyword))
 
 
-
-
 def check_file_exists(filename):
     # returns true if file exists and is not a directory
     # otherwise returns false
 
     filename = os.path.abspath(filename)
     return os.path.exists(filename) and not os.path.isdir(filename)
-
-
 
 
 def get_photos_library_path():
@@ -291,8 +285,6 @@ def get_photos_library_path():
         return None
 
 
-
-
 def copy_db_file(fname):
     # copies the sqlite database file to a temp file
     # returns the name of the temp file
@@ -305,7 +297,6 @@ def copy_db_file(fname):
         print("copying " + fname + " to " + tmp, file=sys.stderr)
         sys.exit()
     return tmp
-
 
 
 # Handle progress bar (equivalent)
@@ -322,8 +313,6 @@ def init_pbar_status(text, max):
     print("init: %s %s" % (text, max))
     _pbar_status_text = text
     _pbar_maxvalue = max
-
-
 
 
 def set_pbar_status(value):
@@ -346,7 +335,6 @@ def set_pbar_status(value):
         sys.stdout.flush()
 
 
-
 def close_pbar_status():
     global _pbar_status_text
     global _pbar_maxvalue
@@ -356,7 +344,6 @@ def close_pbar_status():
         )
     _pbar_maxvalue = -1
     _pbar_status_text = ""
-
 
 
 # Various AppleScripts we need
@@ -403,14 +390,10 @@ def setup_applescript():
     )
 
 
-
-
 def verbose(s):
     # print output only if global _verbose is True
     if _verbose:
         print(s)
-
-
 
 
 def open_sql_file(file):
@@ -424,8 +407,6 @@ def open_sql_file(file):
         sys.exit(3)
     verbose("SQLite database is open")
     return (conn, c)
-
-
 
 
 def get_exiftool_path():
@@ -444,8 +425,6 @@ def get_exiftool_path():
         )
         errstr = "Could not find exiftool"
         sys.exit(errstr)
-
-
 
 
 def process_database(fname):
@@ -688,8 +667,6 @@ def process_database(fname):
         pp.pprint(_dbphotos)
 
 
-
-
 def get_exif_info_as_json(photopath):
     # get exif info from file as JSON via exiftool
 
@@ -718,8 +695,6 @@ def get_exif_info_as_json(photopath):
     return j
 
 
-
-
 def build_list(lst):
     # takes an array of elements that may be a string or list
     #  and returns a list of all items appended
@@ -731,8 +706,6 @@ def build_list(lst):
             else:
                 tmplst.append(x)
     return tmplst
-
-
 
 
 def process_photo(uuid, photopath):
@@ -803,7 +776,7 @@ def process_photo(uuid, photopath):
 
         # add photopath as last argument
         exif_cmd.append(photopath)
-        exif_cmd.insert(0,_exiftool)
+        exif_cmd.insert(0, _exiftool)
         verbose(f"running: {exif_cmd}")
 
         if not _args.test:
@@ -863,8 +836,6 @@ def process_photo(uuid, photopath):
                     )
 
     return
-
-
 
 
 def main():
@@ -1029,7 +1000,6 @@ def main():
 
     # start Photos again
     # scpt_launch.run()
-
 
 
 if __name__ == "__main__":
