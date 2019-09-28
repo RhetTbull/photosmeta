@@ -26,10 +26,7 @@
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 # ## THINGS TODO ###
-# TODO: add missing option to list missing photos
 # TODO: add --version
-# todo: progress bar for photos to process (use tqdm)
-# todo: do ratings? XMP:Ratings, XMP:RatingsPercent
 # todo: position data (lat / lon)
 # todo: option to export then apply tags (e.g. don't tag original)
 # todo: cleanup single/double quotes
@@ -148,9 +145,7 @@ def process_arguments():
         "--album", action="append", help="only process files contained in album"
     )
     parser.add_argument(
-        "--person",
-        action="append",
-        help="only process files         tagged with person",
+        "--person", action="append", help="only process files tagged with person"
     )
     parser.add_argument(
         "--uuid", action="append", help="only process file matching UUID"
@@ -168,6 +163,14 @@ def process_arguments():
         help="modify all photos in place (don't create backups). "
         "If you don't use this option, exiftool will create a backup image "
         "with format filename.extension_original in the same folder as the original image",
+    )
+    parser.add_argument(
+        "--showmissing",
+        action="store_true",
+        default=False,
+        help="show photos which are in the database but missing from disk. "
+        "Will *not* process other photos--e.g. will not modify metadata."
+        "For example, this can happen because the photo has not been downloaded from iCloud.",
     )
     parser.add_argument(
         "--xattrtag",
@@ -193,7 +196,7 @@ def process_arguments():
         action="append",
         choices=["keyword", "album", "person"],
         help="list keywords, albums, persons found in database then exit: "
-        + "--list=keyword, --list=album, --list=person",
+        "--list=keyword, --list=album, --list=person",
     )
 
     # if no args, show help and exit
@@ -488,10 +491,14 @@ def main():
     if len(photos) > 0:
         tqdm.write(f"Processing {len(photos)} photo(s)")
         for photo in tqdm(iterable=photos):
-            # TODO: put is_missing logic here?
             verbose(f"processing photo: {photo.filename()} {photo.path()}")
-            # TODO: pass _args.test as test=
-            process_photo(photo)
+            if photo.ismissing() and _args.showmissing:
+                tqdm.write(
+                    f"Photo {photo.filename()} in database but ismissing flag set; path: {photo.path()}"
+                )
+            else:
+                # TODO: pass _args.test as test=
+                process_photo(photo)
     else:
         tqdm.write("No photos found to process")
 
