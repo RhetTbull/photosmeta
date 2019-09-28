@@ -173,6 +173,12 @@ def process_arguments():
         "For example, this can happen because the photo has not been downloaded from iCloud.",
     )
     parser.add_argument(
+        "--noprogress",
+        action="store_true",
+        default=False,
+        help="do not show progress bar; helpful with --verbose"
+    )
+    parser.add_argument(
         "--xattrtag",
         action="store_true",
         default=False,
@@ -295,10 +301,7 @@ def process_photo(photo):
     # TODO: Update to use is_missing()
     photopath = photo.path()
     if not photopath:
-        print(
-            "WARNING: photo %s does not appear to exist; skipping" % (photopath),
-            file=sys.stderr,
-        )
+        tqdm.write(f"WARNING: photo {photopath} does not appear to exist; skipping")
         return
 
     # get existing metadata
@@ -490,7 +493,7 @@ def main():
     # process each photo
     if len(photos) > 0:
         tqdm.write(f"Processing {len(photos)} photo(s)")
-        for photo in tqdm(iterable=photos):
+        for photo in tqdm(iterable=photos, disable=_args.noprogress):
             verbose(f"processing photo: {photo.filename()} {photo.path()}")
             if photo.ismissing() and _args.showmissing:
                 tqdm.write(
