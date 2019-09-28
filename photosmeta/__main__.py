@@ -3,9 +3,6 @@
 # photosmeta
 # Copyright (c) 2019 Rhet Turnbull <rturnbull+git@gmail.com>
 #
-# Tested with Mac OS 10.13.6 and Photos Version 3.0 (3291.13.210)
-#    and with Mac OS 10.14.6 and Photos Version 4.0 (3461.7.140)
-#
 # This script will extract known metadata from Apple's Photos library and
 # write this metadata to EXIF/IPTC/XMP fields in the photo file
 # For example: Photos knows about Faces (personInImage) but does not
@@ -19,9 +16,6 @@
 
 # title and description are overwritten in the destination file
 # faces and keywords are merged with any data found in destination file (removing duplicates)
-
-# Optionally, will write keywords and/or faces (persons) to
-#   Mac OS native keywords (xattr kMDItemUserTags)
 
 # Dependencies:
 #   exiftool by Phil Harvey:
@@ -55,28 +49,22 @@
 # todo: Add other xattr metadata such as kMDItemAlbum?
 #   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
 
-#TODO: cleanup import list...many of these not needed for new version with osxphotos
+# TODO: cleanup import list...many of these not needed for new version with osxphotos
 
 import argparse
 import json
-# import os
 import os.path
-import plistlib
 import pprint
 import re
-import sqlite3
 import subprocess
 import sys
-import tempfile
 import time
-import urllib.parse
 from datetime import datetime
 from pathlib import Path
-from plistlib import load
-from shutil import copyfile
 
 import osxmetadata
 import osxphotos
+
 # from tqdm import tqdm
 
 # TODO: cleanup globals  -- most not needed now
@@ -88,37 +76,6 @@ _args = None  # command line args as processed by argparse
 _verbose = False  # print verbose output
 _dbfile = None  # will hold path to the Photos sqlite3 database file
 
-# Dict with information about all photos by uuid
-_dbphotos = {}
-
-# Dict with information about all persons/photos by uuid
-_dbfaces_uuid = {}
-
-# Dict with information about all persons/photos by person
-_dbfaces_person = {}
-
-# Dict with information about all keywords/photos by uuid
-_dbkeywords_uuid = {}
-
-# Dict with information about all keywords/photos by keyword
-_dbkeywords_keyword = {}
-
-# Dict with information about all albums/photos by uuid
-_dbalbums_uuid = {}
-
-# Dict with information about all albums/photos by album
-_dbalbums_album = {}
-
-# Dict with information about all the volumes/photos by uuid
-_dbvolumes = {}
-
-# AppleScript calls that will be created by setup_applescript()
-scpt_export = ""
-scpt_launch = ""
-scpt_quit = ""
-
-# TODO: used by scpt_export--remove
-tmppath = "%s/tmp/" % str(Path.home())
 
 # custom argparse class to show help if error triggered
 class MyParser(argparse.ArgumentParser):
@@ -240,69 +197,6 @@ def check_file_exists(filename):
     return os.path.exists(filename) and not os.path.isdir(filename)
 
 
-# def get_photos_library_path():
-#     # return the path to the Photos library
-#     plist_file = Path(
-#         str(Path.home())
-#         + "/Library/Containers/com.apple.Photos/Data/Library/Preferences/com.apple.Photos.plist"
-#     )
-#     if plist_file.is_file():
-#         with open(plist_file, "rb") as fp:
-#             pl = load(fp)
-#     else:
-#         print("could not find plist file: " + str(plist_file), file=sys.stderr)
-#         return None
-
-#     # get the IPXDefaultLibraryURLBookmark from com.apple.Photos.plist
-#     # this is a serialized CFData object
-#     photosurlref = pl["IPXDefaultLibraryURLBookmark"]
-
-#     if photosurlref != None:
-#         # use CFURLCreateByResolvingBookmarkData to de-serialize bookmark data into a CFURLRef
-#         photosurl = CoreFoundation.CFURLCreateByResolvingBookmarkData(
-#             kCFAllocatorDefault, photosurlref, 0, None, None, None, None
-#         )
-
-#         # the CFURLRef we got is a sruct that python treats as an array
-#         # I'd like to pass this to CFURLGetFileSystemRepresentation to get the path but
-#         # CFURLGetFileSystemRepresentation barfs when it gets an array from python instead of expected struct
-#         # first element is the path string in form:
-#         # file:///Users/username/Pictures/Photos%20Library.photoslibrary/
-#         photosurlstr = photosurl[0].absoluteString() if photosurl[0] else None
-
-#         # now coerce the file URI back into an OS path
-#         # surely there must be a better way
-#         if photosurlstr is not None:
-#             photospath = os.path.normpath(
-#                 urllib.parse.unquote(urllib.parse.urlparse(photosurlstr).path)
-#             )
-#         else:
-#             print(
-#                 "Could not extract photos URL String from IPXDefaultLibraryURLBookmark",
-#                 file=sys.stderr,
-#             )
-#             return None
-
-#         return photospath
-#     else:
-#         print("Could not get path to Photos database", file=sys.stderr)
-#         return None
-
-
-# def copy_db_file(fname):
-#     # copies the sqlite database file to a temp file
-#     # returns the name of the temp file
-#     # required because python's sqlite3 implementation can't read a locked file
-#     fd, tmp = tempfile.mkstemp(suffix=".db", prefix="photos")
-#     verbose("copying " + fname + " to " + tmp)
-#     try:
-#         copyfile(fname, tmp)
-#     except:
-#         print("copying " + fname + " to " + tmp, file=sys.stderr)
-#         sys.exit()
-#     return tmp
-
-
 # Handle progress bar (equivalent)
 # TODO: this code from https://github.com/patrikhson/photo-export
 #       it's not
@@ -350,67 +244,10 @@ def close_pbar_status():
     _pbar_status_text = ""
 
 
-# Various AppleScripts we need
-# def setup_applescript():
-#     global scpt_export
-#     global scpt_launch
-#     global scpt_quit
-
-#     # Compile apple script that exports one image
-#     scpt_export = applescript.AppleScript(
-#         """
-#         on run {arg}
-#           set thepath to "%s"
-#           tell application "Photos"
-#             set theitem to media item id arg
-#             set thelist to {theitem}
-#             export thelist to POSIX file thepath
-#           end tell
-#         end run
-#         """
-#         % (tmppath)
-#     )
-
-#     # Compile apple script that launches Photos.App
-#     scpt_launch = applescript.AppleScript(
-#         """
-#         on run
-#           tell application "Photos"
-#             activate
-#           end tell
-#         end run
-#         """
-#     )
-
-#     # Compile apple script that quits Photos.App
-#     scpt_quit = applescript.AppleScript(
-#         """
-#         on run
-#           tell application "Photos"
-#             quit
-#           end tell
-#         end run
-#         """
-#     )
-
-
 def verbose(s):
     # print output only if global _verbose is True
     if _verbose:
         print(s)
-
-
-# def open_sql_file(file):
-#     fname = file
-#     verbose("Trying to open database %s" % (fname))
-#     try:
-#         conn = sqlite3.connect("%s" % (fname))
-#         c = conn.cursor()
-#     except sqlite3.Error as e:
-#         print("An error occurred: %s %s" % (e.args[0], fname))
-#         sys.exit(3)
-#     verbose("SQLite database is open")
-#     return (conn, c)
 
 
 def get_exiftool_path():
@@ -429,246 +266,6 @@ def get_exiftool_path():
         )
         errstr = "Could not find exiftool"
         sys.exit(errstr)
-
-
-# def process_database(fname):
-#     global _dbphotos
-#     global _dbfaces_uuid
-#     global _dbfaces_person
-#     global _dbkeywords_uuid
-#     global _dbkeywords_keyword
-#     global _dbalbums_uuid
-#     global _dbalbums_album
-#     global _debug
-
-#     # Epoch is Jan 1, 2001
-#     td = (datetime(2001, 1, 1, 0, 0) - datetime(1970, 1, 1, 0, 0)).total_seconds()
-
-#     # Ensure Photos.App is not running
-#     scpt_quit.run()
-
-#     tmp_db = copy_db_file(fname)
-#     (conn, c) = open_sql_file(tmp_db)
-#     verbose("Have connection with database")
-
-#     # Look for all combinations of persons and pictures
-#     verbose("Getting information about persons")
-
-#     i = 0
-#     c.execute(
-#         "select count(*) from RKFace, RKPerson, RKVersion where RKFace.personID = RKperson.modelID "
-#         + "and RKFace.imageModelId = RKVersion.modelId and RKVersion.isInTrash = 0"
-#     )
-#     init_pbar_status("Faces", c.fetchone()[0])
-#     # c.execute("select RKPerson.name, RKFace.imageID from RKFace, RKPerson where RKFace.personID = RKperson.modelID")
-
-#     c.execute(
-#         "select RKPerson.name, RKVersion.uuid from RKFace, RKPerson, RKVersion, RKMaster "
-#         + "where RKFace.personID = RKperson.modelID and RKVersion.modelId = RKFace.ImageModelId "
-#         + "and RKVersion.type = 2 and RKVersion.masterUuid = RKMaster.uuid and "
-#         + "RKVersion.filename not like '%.pdf' and RKVersion.isInTrash = 0"
-#     )
-#     for person in c:
-#         if person[0] == None:
-#             verbose("skipping person = None %s" % person[1])
-#             continue
-#         if not person[1] in _dbfaces_uuid:
-#             _dbfaces_uuid[person[1]] = []
-#         if not person[0] in _dbfaces_person:
-#             _dbfaces_person[person[0]] = []
-#         _dbfaces_uuid[person[1]].append(person[0])
-#         _dbfaces_person[person[0]].append(person[1])
-#         set_pbar_status(i)
-#         i = i + 1
-#     verbose("Finished walking through persons")
-#     close_pbar_status()
-
-#     verbose("Getting information about albums")
-#     i = 0
-#     c.execute(
-#         "select count(*) from RKAlbum, RKVersion, RKAlbumVersion where "
-#         + "RKAlbum.modelID = RKAlbumVersion.albumId and "
-#         + "RKAlbumVersion.versionID = RKVersion.modelId and "
-#         + "RKVersion.filename not like '%.pdf' and RKVersion.isInTrash = 0"
-#     )
-#     init_pbar_status("Albums", c.fetchone()[0])
-#     # c.execute("select RKPerson.name, RKFace.imageID from RKFace, RKPerson where RKFace.personID = RKperson.modelID")
-#     c.execute(
-#         "select RKAlbum.name, RKVersion.uuid from RKAlbum, RKVersion, RKAlbumVersion "
-#         + "where RKAlbum.modelID = RKAlbumVersion.albumId and "
-#         + "RKAlbumVersion.versionID = RKVersion.modelId and RKVersion.type = 2 and "
-#         + "RKVersion.filename not like '%.pdf' and RKVersion.isInTrash = 0"
-#     )
-#     for album in c:
-#         # store by uuid in _dbalbums_uuid and by album in _dbalbums_album
-#         if not album[1] in _dbalbums_uuid:
-#             _dbalbums_uuid[album[1]] = []
-#         if not album[0] in _dbalbums_album:
-#             _dbalbums_album[album[0]] = []
-#         _dbalbums_uuid[album[1]].append(album[0])
-#         _dbalbums_album[album[0]].append(album[1])
-#         verbose("%s %s" % (album[1], album[0]))
-#         set_pbar_status(i)
-#         i = i + 1
-#     verbose("Finished walking through albums")
-#     close_pbar_status()
-
-#     verbose("Getting information about keywords")
-#     c.execute(
-#         "select count(*) from RKKeyword, RKKeywordForVersion,RKVersion, RKMaster "
-#         + "where RKKeyword.modelId = RKKeyWordForVersion.keywordID and "
-#         + "RKVersion.modelID = RKKeywordForVersion.versionID and RKMaster.uuid = "
-#         + "RKVersion.masterUuid and RKVersion.filename not like '%.pdf' and RKVersion.isInTrash = 0"
-#     )
-#     init_pbar_status("Keywords", c.fetchone()[0])
-#     c.execute(
-#         "select RKKeyword.name, RKVersion.uuid, RKMaster.uuid from "
-#         + "RKKeyword, RKKeywordForVersion, RKVersion, RKMaster "
-#         + "where RKKeyword.modelId = RKKeyWordForVersion.keywordID and "
-#         + "RKVersion.modelID = RKKeywordForVersion.versionID "
-#         + "and RKMaster.uuid = RKVersion.masterUuid and RKVersion.type = 2 "
-#         + "and RKVersion.filename not like '%.pdf' and RKVersion.isInTrash = 0"
-#     )
-#     i = 0
-#     for keyword in c:
-#         if not keyword[1] in _dbkeywords_uuid:
-#             _dbkeywords_uuid[keyword[1]] = []
-#         if not keyword[0] in _dbkeywords_keyword:
-#             _dbkeywords_keyword[keyword[0]] = []
-#         _dbkeywords_uuid[keyword[1]].append(keyword[0])
-#         _dbkeywords_keyword[keyword[0]].append(keyword[1])
-#         verbose("%s %s" % (keyword[1], keyword[0]))
-#         set_pbar_status(i)
-#         i = i + 1
-#     verbose("Finished walking through keywords")
-#     close_pbar_status()
-
-#     verbose("Getting information about volumes")
-#     c.execute("select count(*) from RKVolume")
-#     init_pbar_status("Volumes", c.fetchone()[0])
-#     c.execute("select RKVolume.modelId, RKVolume.name from RKVolume")
-#     i = 0
-#     for vol in c:
-#         _dbvolumes[vol[0]] = vol[1]
-#         verbose("%s %s" % (vol[0], vol[1]))
-#         set_pbar_status(i)
-#         i = i + 1
-#     verbose("Finished walking through volumes")
-#     close_pbar_status()
-
-#     verbose("Getting information about photos")
-#     c.execute(
-#         "select count(*) from RKVersion, RKMaster where RKVersion.isInTrash = 0 and "
-#         + "RKVersion.type = 2 and RKVersion.masterUuid = RKMaster.uuid and "
-#         + "RKVersion.filename not like '%.pdf'"
-#     )
-#     init_pbar_status("Photos", c.fetchone()[0])
-#     c.execute(
-#         "select RKVersion.uuid, RKVersion.modelId, RKVersion.masterUuid, RKVersion.filename, "
-#         + "RKVersion.lastmodifieddate, RKVersion.imageDate, RKVersion.mainRating, "
-#         + "RKVersion.hasAdjustments, RKVersion.hasKeywords, RKVersion.imageTimeZoneOffsetSeconds, "
-#         + "RKMaster.volumeId, RKMaster.imagePath, RKVersion.extendedDescription, RKVersion.name, "
-#         + "RKMaster.isMissing "
-#         + "from RKVersion, RKMaster where RKVersion.isInTrash = 0 and RKVersion.type = 2 and "
-#         + "RKVersion.masterUuid = RKMaster.uuid and RKVersion.filename not like '%.pdf'"
-#     )
-#     i = 0
-#     for row in c:
-#         set_pbar_status(i)
-#         i = i + 1
-#         uuid = row[0]
-#         if _debug:
-#             print("i = %d, uuid = '%s, master = '%s" % (i, uuid, row[2]))
-#         _dbphotos[uuid] = {}
-#         _dbphotos[uuid]["modelID"] = row[1]
-#         _dbphotos[uuid]["masterUuid"] = row[2]
-#         _dbphotos[uuid]["filename"] = row[3]
-#         try:
-#             _dbphotos[uuid]["lastmodifieddate"] = datetime.fromtimestamp(row[4] + td)
-#         except:
-#             _dbphotos[uuid]["lastmodifieddate"] = datetime.fromtimestamp(row[5] + td)
-#         _dbphotos[uuid]["imageDate"] = datetime.fromtimestamp(row[5] + td)
-#         _dbphotos[uuid]["mainRating"] = row[6]
-#         _dbphotos[uuid]["hasAdjustments"] = row[7]
-#         _dbphotos[uuid]["hasKeywords"] = row[8]
-#         _dbphotos[uuid]["imageTimeZoneOffsetSeconds"] = row[9]
-#         _dbphotos[uuid]["volumeId"] = row[10]
-#         _dbphotos[uuid]["imagePath"] = row[11]
-#         _dbphotos[uuid]["extendedDescription"] = row[12]
-#         _dbphotos[uuid]["name"] = row[13]
-#         _dbphotos[uuid]["isMissing"] = row[14]
-#         verbose(
-#             "Fetching data for photo %d %s %s %s %s %s: %s"
-#             % (
-#                 i,
-#                 uuid,
-#                 _dbphotos[uuid]["masterUuid"],
-#                 _dbphotos[uuid]["volumeId"],
-#                 _dbphotos[uuid]["filename"],
-#                 _dbphotos[uuid]["extendedDescription"],
-#                 _dbphotos[uuid]["imageDate"],
-#             )
-#         )
-
-#     close_pbar_status()
-#     conn.close()
-
-#     # add faces and keywords to photo data
-#     for uuid in _dbphotos:
-#         # keywords
-#         if _dbphotos[uuid]["hasKeywords"] == 1:
-#             _dbphotos[uuid]["keywords"] = _dbkeywords_uuid[uuid]
-#         else:
-#             _dbphotos[uuid]["keywords"] = []
-
-#         if uuid in _dbfaces_uuid:
-#             _dbphotos[uuid]["hasPersons"] = 1
-#             _dbphotos[uuid]["persons"] = _dbfaces_uuid[uuid]
-#         else:
-#             _dbphotos[uuid]["hasPersons"] = 0
-#             _dbphotos[uuid]["persons"] = []
-
-#         if uuid in _dbalbums_uuid:
-#             _dbphotos[uuid]["albums"] = _dbalbums_uuid[uuid]
-#             _dbphotos[uuid]["hasAlbums"] = 1
-#         else:
-#             _dbphotos[uuid]["albums"] = []
-#             _dbphotos[uuid]["hasAlbums"] = 0
-
-#         if _dbphotos[uuid]["volumeId"] is not None:
-#             _dbphotos[uuid]["volume"] = _dbvolumes[_dbphotos[uuid]["volumeId"]]
-#         else:
-#             _dbphotos[uuid]["volume"] = None
-
-#     # remove temporary copy of the databse
-#     try:
-#         verbose("Removing temporary databse file" + tmp_db)
-#         os.remove(tmp_db)
-#     except:
-#         print("Could not remove temporary database: " + tmp_db, file=sys.stderr)
-
-#     if _debug:
-#         pp = pprint.PrettyPrinter(indent=4)
-#         print("Faces:")
-#         pp.pprint(_dbfaces_uuid)
-
-#         print("Keywords by uuid:")
-#         pp.pprint(_dbkeywords_uuid)
-
-#         print("Keywords by keyword:")
-#         pp.pprint(_dbkeywords_keyword)
-
-#         print("Albums by uuid:")
-#         pp.pprint(_dbalbums_uuid)
-
-#         print("Albums by album:")
-#         pp.pprint(_dbalbums_album)
-
-#         print("Volumes:")
-#         pp.pprint(_dbvolumes)
-
-#         print("Photos:")
-#         pp.pprint(_dbphotos)
 
 
 def get_exif_info_as_json(photopath):
@@ -718,7 +315,7 @@ def process_photo(photo):
 
     exif_cmd = []
 
-    #TODO: Update to use is_missing()
+    # TODO: Update to use is_missing()
     photopath = photo.path()
     if not photopath:
         print(
@@ -813,14 +410,6 @@ def process_photo(photo):
             taglist = build_list([taglist, list(keywords_raw)])
         if _args.xattrperson and persons_raw:
             taglist = build_list([taglist, list(persons_raw)])
-        # tags = ["<string>%s</string>" % (x) for x in taglist]
-        # plist = (
-        #     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
-        #     '"http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0">'
-        #     "<array>%s</array></plist>" % " ".join(tags)
-        # )
-
-        # xattr_cmd = "%s '%s' '%s'" % (xattr_cmd, plist, photopath)
 
         print("applying extended attributes")
         # verbose("running: %s" % xattr_cmd)
@@ -831,9 +420,6 @@ def process_photo(photo):
                 meta = osxmetadata.OSXMetaData(photopath)
                 for tag in taglist:
                     meta.tags += tag
-                # proc = subprocess.run(
-                #     xattr_cmd, check=True, shell=True, stdout=subprocess.PIPE
-                # )
             except Exception as e:
                 sys.exit(f"Error: {e}")
 
@@ -849,30 +435,6 @@ def main():
     _exiftool = get_exiftool_path()
     # setup_applescript()
     process_arguments()
-
-    # filename = ("%s/Pictures/Photos Library.photoslibrary" % os.path.expanduser("~"))
-
-    # if _dbfile is None:
-    #     library_path = get_photos_library_path()
-    #     print("library_path: " + library_path)
-    #     # TODO: verify library path not None
-    #     _dbfile = os.path.join(library_path, "database/photos.db")
-    #     print(_dbfile)
-
-    # # filename = _dbfile
-    # # verbose("filename = %s" % filename)
-
-    # # TODO: replace os.path with pathlib
-    # # TODO: clean this up -- we'll already know library_path
-    # library_path = os.path.dirname(filename)
-    # (library_path, tmp) = os.path.split(library_path)
-    # masters_path = os.path.join(library_path, "Masters")
-    # verbose("library = %s, masters = %s" % (library_path, masters_path))
-
-    # if not check_file_exists(filename):
-    #     sys.exit("_dbfile %s does not exist" % (filename))
-
-    # verbose("databse filename = %s" % filename)
 
     photosdb = None
 
@@ -949,9 +511,9 @@ def main():
 
     # process each photo
     for photo in photos:
-        #TODO: put is_missing logic here?
+        # TODO: put is_missing logic here?
         print(f"processing photo: {photo.filename()} {photo.path()}")
-        #TODO: pass _args.test as test=
+        # TODO: pass _args.test as test=
         process_photo(photo)
 
 

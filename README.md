@@ -50,6 +50,8 @@ This code was inspired by photo-export by Patrick Fältström see:
 ### Warning ###
 This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script.
 
+Tested with Mac OS 10.13.6 / Photos Version 3.0 (3291.13.210) and with Mac OS 10.14.6 / Photos Version 4.0 (3461.7.140)
+
 ### License ###
 
 See LICENSE.md
