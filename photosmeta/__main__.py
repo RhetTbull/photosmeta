@@ -26,7 +26,6 @@
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 # ## THINGS TODO ###
-# todo: fix progress bar/tqdm look at yep2tag
 # TODO: add missing option to list missing photos
 # TODO: add --version
 # todo: progress bar for photos to process (use tqdm)
@@ -50,27 +49,27 @@
 #   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
 
 # TODO: cleanup import list...many of these not needed for new version with osxphotos
-    # if _dbfile is None:
-    #     library_path = get_photos_library_path()
-    #     print("library_path: " + library_path)
-    #     # TODO: verify library path not None
-    #     _dbfile = os.path.join(library_path, "database/photos.db")
-    #     print(_dbfile)
+# if _dbfile is None:
+#     library_path = get_photos_library_path()
+#     print("library_path: " + library_path)
+#     # TODO: verify library path not None
+#     _dbfile = os.path.join(library_path, "database/photos.db")
+#     print(_dbfile)
 
-    # # filename = _dbfile
-    # # verbose("filename = %s" % filename)
+# # filename = _dbfile
+# # verbose("filename = %s" % filename)
 
-    # # TODO: replace os.path with pathlib
-    # # TODO: clean this up -- we'll already know library_path
-    # library_path = os.path.dirname(filename)
-    # (library_path, tmp) = os.path.split(library_path)
-    # masters_path = os.path.join(library_path, "Masters")
-    # verbose("library = %s, masters = %s" % (library_path, masters_path))
+# # TODO: replace os.path with pathlib
+# # TODO: clean this up -- we'll already know library_path
+# library_path = os.path.dirname(filename)
+# (library_path, tmp) = os.path.split(library_path)
+# masters_path = os.path.join(library_path, "Masters")
+# verbose("library = %s, masters = %s" % (library_path, masters_path))
 
-    # if not check_file_exists(filename):
-    #     sys.exit("_dbfile %s does not exist" % (filename))
+# if not check_file_exists(filename):
+#     sys.exit("_dbfile %s does not exist" % (filename))
 
-    # verbose("databse filename = %s" % filename)
+# verbose("databse filename = %s" % filename)
 
 
 import argparse
@@ -192,7 +191,7 @@ def process_arguments():
     parser.add_argument(
         "--list",
         action="append",
-        choices=['keyword','album','person'],
+        choices=["keyword", "album", "person"],
         help="list keywords, albums, persons found in database then exit: "
         + "--list=keyword, --list=album, --list=person",
     )
@@ -217,53 +216,6 @@ def check_file_exists(filename):
 
     filename = os.path.abspath(filename)
     return os.path.exists(filename) and not os.path.isdir(filename)
-
-
-# Handle progress bar (equivalent)
-# TODO: this code from https://github.com/patrikhson/photo-export
-#       it's not
-# TODO: replace this code with https://pypi.org/project/progress/
-_pbar_status_text = ""
-_pbar_maxvalue = -1
-
-
-def init_pbar_status(text, max):
-    global _pbar_status_text
-    global _pbar_maxvalue
-    print("init: %s %s" % (text, max))
-    _pbar_status_text = text
-    _pbar_maxvalue = max
-
-
-def set_pbar_status(value):
-    global _pbar_status_text
-    global _pbar_maxvalue
-    if not _verbose:
-        if _pbar_maxvalue > 0:
-            progress = value / _pbar_maxvalue
-            sys.stdout.write(
-                "\r%s: [ %-30s ] %3d%%"
-                % (
-                    _pbar_status_text,
-                    format("#" * int(progress * 30)),
-                    int(progress * 100),
-                )
-            )
-        else:
-            # todo: this will produce an error theNum not defined
-            sys.stdout.write("\r%s" % (_pbar_status_text))
-        sys.stdout.flush()
-
-
-def close_pbar_status():
-    global _pbar_status_text
-    global _pbar_maxvalue
-    if not _verbose:
-        sys.stdout.write(
-            "\r%s: [ %-30s ] %3d%%\n" % (_pbar_status_text, format("#" * 30), 100)
-        )
-    _pbar_maxvalue = -1
-    _pbar_status_text = ""
 
 
 def verbose(s):
