@@ -154,7 +154,7 @@ def process_arguments():
         "--all",
         action="store_true",
         default=False,
-        help="export all photos in the database",
+        help="process all photos in the database",
     )
     parser.add_argument(
         "--inplace",
