@@ -221,7 +221,7 @@ def check_file_exists(filename):
 def verbose(s):
     # print output only if global _verbose is True
     if _verbose:
-        (s)
+        tqdm.write(s)
 
 
 def get_exiftool_path():
@@ -352,7 +352,8 @@ def process_photo(photo):
         # add photopath as last argument
         exif_cmd.append(photopath)
         exif_cmd.insert(0, _exiftool)
-        verbose(f"running: {exif_cmd}")
+        if _debug:
+            print(f"running: {exif_cmd}")
 
         if not _args.test:
             try:
