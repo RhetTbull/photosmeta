@@ -50,6 +50,28 @@
 #   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
 
 # TODO: cleanup import list...many of these not needed for new version with osxphotos
+    # if _dbfile is None:
+    #     library_path = get_photos_library_path()
+    #     print("library_path: " + library_path)
+    #     # TODO: verify library path not None
+    #     _dbfile = os.path.join(library_path, "database/photos.db")
+    #     print(_dbfile)
+
+    # # filename = _dbfile
+    # # verbose("filename = %s" % filename)
+
+    # # TODO: replace os.path with pathlib
+    # # TODO: clean this up -- we'll already know library_path
+    # library_path = os.path.dirname(filename)
+    # (library_path, tmp) = os.path.split(library_path)
+    # masters_path = os.path.join(library_path, "Masters")
+    # verbose("library = %s, masters = %s" % (library_path, masters_path))
+
+    # if not check_file_exists(filename):
+    #     sys.exit("_dbfile %s does not exist" % (filename))
+
+    # verbose("databse filename = %s" % filename)
+
 
 import argparse
 import json
@@ -64,8 +86,7 @@ from pathlib import Path
 
 import osxmetadata
 import osxphotos
-
-# from tqdm import tqdm
+from tqdm import tqdm
 
 # TODO: cleanup globals  -- most not needed now
 # Globals
@@ -171,7 +192,8 @@ def process_arguments():
     parser.add_argument(
         "--list",
         action="append",
-        help="list keywords, albums, persons found in database: "
+        choices=['keyword','album','person'],
+        help="list keywords, albums, persons found in database then exit: "
         + "--list=keyword, --list=album, --list=person",
     )
 
@@ -247,7 +269,7 @@ def close_pbar_status():
 def verbose(s):
     # print output only if global _verbose is True
     if _verbose:
-        print(s)
+        (s)
 
 
 def get_exiftool_path():
@@ -397,9 +419,9 @@ def process_photo(photo):
                     )
                 verbose(proc.stdout.decode("utf-8"))
         else:
-            print(f"TEST: {exif_cmd}")
+            tqdm.write(f"TEST: {exif_cmd}")
     else:
-        verbose("Skipping photo %s, nothing to do" % (photopath))
+        verbose(f"Skipping photo {photopath}, nothing to do")
 
     # update xattr tags if requested
     # TODO: update to use osxmetadata
@@ -411,12 +433,11 @@ def process_photo(photo):
         if _args.xattrperson and persons_raw:
             taglist = build_list([taglist, list(persons_raw)])
 
-        print("applying extended attributes")
+        verbose("applying extended attributes")
         # verbose("running: %s" % xattr_cmd)
 
         if not _args.test:
             try:
-                print(taglist)
                 meta = osxmetadata.OSXMetaData(photopath)
                 for tag in taglist:
                     meta.tags += tag
@@ -440,7 +461,7 @@ def main():
 
     if not _args.force:
         # prompt user to continue
-        print("Caution: This script will modify your photos library")
+        print("Caution: This script may modify your photos library")
         # TODO: modify oxphotos to get this info as module level call
         # print("Library: %s, database: %s" % (library_path, filename))
         print(
@@ -480,6 +501,7 @@ def main():
             for album, count in photosdb.albums_as_dict().items():
                 print(f"\t{album} ({count})")
             print("-" * 60)
+        sys.exit(0)
 
     photos = []
     # collect list of files to process
@@ -510,11 +532,15 @@ def main():
         pp.pprint(photos)
 
     # process each photo
-    for photo in photos:
-        # TODO: put is_missing logic here?
-        print(f"processing photo: {photo.filename()} {photo.path()}")
-        # TODO: pass _args.test as test=
-        process_photo(photo)
+    if len(photos) > 0:
+        tqdm.write(f"Processing {len(photos)} photo(s)")
+        for photo in tqdm(iterable=photos):
+            # TODO: put is_missing logic here?
+            verbose(f"processing photo: {photo.filename()} {photo.path()}")
+            # TODO: pass _args.test as test=
+            process_photo(photo)
+    else:
+        tqdm.write("No photos found to process")
 
 
 if __name__ == "__main__":
