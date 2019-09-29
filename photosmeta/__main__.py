@@ -101,7 +101,7 @@ def process_arguments():
         help="Do not prompt before processing",
     )
     parser.add_argument(
-        "--debug", action="store_true", default=False, help="enable debug output"
+        "--debug", action="store_true", default=False, help=argparse.SUPPRESS, 
     )  # TODO: eventually remove this
     parser.add_argument(
         "--test",
