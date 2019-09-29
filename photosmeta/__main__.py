@@ -268,7 +268,7 @@ def build_list(lst):
     return tmplst
 
 
-def process_photo(photo):
+def process_photo(photo, test=False):
     # process a photo using exiftool
     global _args
 
@@ -341,7 +341,7 @@ def process_photo(photo):
         if _debug:
             print(f"running: {exif_cmd}")
 
-        if not _args.test:
+        if not test:
             try:
                 # SECURITY NOTE: none of the args to exiftool are shell quoted
                 # as subprocess.run does this as long as shell=True is not used
@@ -358,14 +358,14 @@ def process_photo(photo):
                     )
                 verbose(proc.stdout.decode("utf-8"))
         else:
-            tqdm.write(f"TEST: {exif_cmd}")
+            verbose(f"TEST: Processed {photo.filename()}")
+            if _debug:
+                tqdm.write(f"TEST: {exif_cmd}")
     else:
         verbose(f"Skipping photo {photopath}, nothing to do")
 
     # update xattr tags if requested
-    # TODO: update to use osxmetadata
     if (_args.xattrtag and keywords_raw) or (_args.xattrperson and persons_raw):
-        # xattr_cmd = "/usr/bin/xattr -w com.apple.metadata:_kMDItemUserTags "
         taglist = []
         if _args.xattrtag and keywords_raw:
             taglist = build_list([taglist, list(keywords_raw)])
@@ -373,15 +373,16 @@ def process_photo(photo):
             taglist = build_list([taglist, list(persons_raw)])
 
         verbose("applying extended attributes")
-        # verbose("running: %s" % xattr_cmd)
 
-        if not _args.test:
+        if not test:
             try:
                 meta = osxmetadata.OSXMetaData(photopath)
                 for tag in taglist:
                     meta.tags += tag
             except Exception as e:
                 sys.exit(f"Error: {e}")
+        else:
+            verbose(f"TEST: applied extended attributes to {photo.filename()}")
 
     return
 
@@ -482,8 +483,7 @@ def main():
                     f"Missing photo: '{photo.filename()}' in database but ismissing flag set; path: {photo.path()}"
                 )
             elif not _args.showmissing:
-                # TODO: pass _args.test as test=
-                process_photo(photo)
+                process_photo(photo,test=_args.test)
     else:
         tqdm.write("No photos found to process")
 
