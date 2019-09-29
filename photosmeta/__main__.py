@@ -26,7 +26,6 @@
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 # ## THINGS TODO ###
-# TODO: add --version
 # todo: position data (lat / lon)
 # todo: option to export then apply tags (e.g. don't tag original)
 # todo: cleanup single/double quotes
@@ -45,28 +44,6 @@
 # todo: Add other xattr metadata such as kMDItemAlbum?
 #   see: https://developer.apple.com/library/archive/documentation/CoreServices/Reference/MetadataAttributesRef/Reference/CommonAttrs.html#//apple_ref/doc/uid/TP40001694-SW1
 
-# TODO: cleanup import list...many of these not needed for new version with osxphotos
-# if _dbfile is None:
-#     library_path = get_photos_library_path()
-#     print("library_path: " + library_path)
-#     # TODO: verify library path not None
-#     _dbfile = os.path.join(library_path, "database/photos.db")
-#     print(_dbfile)
-
-# # filename = _dbfile
-# # verbose("filename = %s" % filename)
-
-# # TODO: clean this up -- we'll already know library_path
-# library_path = os.path.dirname(filename)
-# (library_path, tmp) = os.path.split(library_path)
-# masters_path = os.path.join(library_path, "Masters")
-# verbose("library = %s, masters = %s" % (library_path, masters_path))
-
-# if not check_file_exists(filename):
-#     sys.exit("_dbfile %s does not exist" % (filename))
-
-# verbose("databse filename = %s" % filename)
-
 
 import argparse
 import json
@@ -81,13 +58,12 @@ import osxmetadata
 import osxphotos
 from tqdm import tqdm
 
-# TODO: cleanup globals  -- most not needed now
+# TODO: cleanup globals
 # Globals
 _version = "1.1.0"
 _debug = False
 _args = None  # command line args as processed by argparse
 _verbose = False  # print verbose output
-_dbfile = None  # will hold path to the Photos sqlite3 database file
 
 
 # custom argparse class to show help if error triggered
@@ -101,7 +77,6 @@ class MyParser(argparse.ArgumentParser):
 def process_arguments():
     global _args
     global _verbose
-    global _dbfile
     global _debug
 
     # Setup command line arguments
@@ -175,6 +150,12 @@ def process_arguments():
         help="do not show progress bar; helpful with --verbose",
     )
     parser.add_argument(
+        "--version",
+        action="store_true",
+        default=False,
+        help="show version number and exit"
+    )
+    parser.add_argument(
         "--xattrtag",
         action="store_true",
         default=False,
@@ -208,7 +189,6 @@ def process_arguments():
 
     _args = parser.parse_args()
     _verbose = _args.verbose
-    _dbfile = _args.database
     _debug = _args.debug
 
     if _args.keyword is not None:
@@ -408,12 +388,15 @@ def process_photo(photo):
 
 
 def main():
-    global _verbose
-    global _dbfile
     global _args
+    global _verbose
+    global _debug
 
-    # setup_applescript()
     process_arguments()
+
+    if _args.version:
+        print(f"Version: {_version}")
+        sys.exit(0)
 
     photosdb = None
 
@@ -433,7 +416,7 @@ def main():
     if any(
         [_args.all, _args.album, _args.keyword, _args.person, _args.uuid, _args.list]
     ):
-        photosdb = osxphotos.PhotosDB(dbfile=_dbfile)
+        photosdb = osxphotos.PhotosDB(dbfile=_args.database)
     else:
         print(
             "You must select at least one of the following options: "
