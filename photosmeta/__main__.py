@@ -74,6 +74,8 @@ class MyParser(argparse.ArgumentParser):
 
 
 def process_arguments():
+    """ Process command line args, returns args in global _args, """
+    """ also sets global _verbose and global _debug as convenience """
     global _args
     global _verbose
     global _debug
@@ -100,7 +102,7 @@ def process_arguments():
         help="Do not prompt before processing",
     )
     parser.add_argument(
-        "--debug", action="store_true", default=False, help=argparse.SUPPRESS, 
+        "--debug", action="store_true", default=False, help=argparse.SUPPRESS
     )  # TODO: eventually remove this
     parser.add_argument(
         "--test",
@@ -152,7 +154,7 @@ def process_arguments():
         "--version",
         action="store_true",
         default=False,
-        help="show version number and exit"
+        help="show version number and exit",
     )
     parser.add_argument(
         "--xattrtag",
@@ -195,15 +197,15 @@ def process_arguments():
 
 
 def check_file_exists(filename):
-    # returns true if file exists and is not a directory
-    # otherwise returns false
+    """ return true if a file exists on disk and is not a directory, """
+    """ otherwise return false """
 
     filename = os.path.abspath(filename)
     return os.path.exists(filename) and not os.path.isdir(filename)
 
 
 def verbose(s):
-    # print output only if global _verbose is True
+    """ print s if global _verbose == True """
     if _verbose:
         tqdm.write(s)
 
@@ -228,7 +230,7 @@ def get_exiftool_path():
 
 
 def get_exif_info_as_json(photopath):
-    # get exif info from file as JSON via exiftool
+    """ get exif info from file as JSON via exiftool """
 
     if not check_file_exists(photopath):
         raise ValueError("Photopath %s does not appear to be valid file" % photopath)
@@ -256,8 +258,8 @@ def get_exif_info_as_json(photopath):
 
 
 def build_list(lst):
-    # takes an array of elements that may be a string or list
-    #  and returns a list of all items appended
+    """ input: array of elements that may be a string or list """
+    """ returns: appends all input items to a list and returns the list """
     tmplst = []
     for x in lst:
         if x is not None:
@@ -269,7 +271,8 @@ def build_list(lst):
 
 
 def process_photo(photo, test=False):
-    # process a photo using exiftool
+    """ process a photo using exiftool to write metadata to image file """
+    """ test: run in test mode (don't actually process anything) """
     global _args
 
     exif_cmd = []
@@ -388,6 +391,10 @@ def process_photo(photo, test=False):
 
 
 def main():
+    """ main function for the script """
+    """ globals: _args, _verbose, _debug """
+    """ processes arguments, loads the Photos database, """
+    """ finds matching photos, then processes each one """
     global _args
     global _verbose
     global _debug
@@ -416,7 +423,9 @@ def main():
     if any(
         [_args.all, _args.album, _args.keyword, _args.person, _args.uuid, _args.list]
     ):
+        print("Loading database...")
         photosdb = osxphotos.PhotosDB(dbfile=_args.database)
+        print(f"Loaded database {photosdb.get_db_path()}")
     else:
         print(
             "You must select at least one of the following options: "
@@ -483,7 +492,7 @@ def main():
                     f"Missing photo: '{photo.filename()}' in database but ismissing flag set; path: {photo.path()}"
                 )
             elif not _args.showmissing:
-                process_photo(photo,test=_args.test)
+                process_photo(photo, test=_args.test)
     else:
         tqdm.write("No photos found to process")
 
