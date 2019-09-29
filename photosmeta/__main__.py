@@ -172,7 +172,7 @@ def process_arguments():
         "--noprogress",
         action="store_true",
         default=False,
-        help="do not show progress bar; helpful with --verbose"
+        help="do not show progress bar; helpful with --verbose",
     )
     parser.add_argument(
         "--xattrtag",
@@ -227,6 +227,7 @@ def verbose(s):
     # print output only if global _verbose is True
     if _verbose:
         tqdm.write(s)
+
 
 @lru_cache(maxsize=1)
 def get_exiftool_path():
@@ -296,8 +297,11 @@ def process_photo(photo):
 
     # TODO: Update to use is_missing()
     photopath = photo.path()
-    if not photopath:
-        tqdm.write(f"WARNING: photo '{photo.name()}' does not appear to exist; skipping")
+    if not photopath or not check_file_exists(photopath):
+        tqdm.write(
+            f"WARNING: skipping missing photo '{photo.filename()}' "
+            f"(ismissing={photo.ismissing()}, path='{photopath}'); skipping"
+        )
         return
 
     # get existing metadata
@@ -486,15 +490,16 @@ def main():
         pp.pprint(photos)
 
     # process each photo
+    # if showmissing=True, only list missing photos, don't process them
     if len(photos) > 0:
         tqdm.write(f"Processing {len(photos)} photo(s)")
         for photo in tqdm(iterable=photos, disable=_args.noprogress):
             verbose(f"processing photo: {photo.filename()} {photo.path()}")
             if photo.ismissing() and _args.showmissing:
                 tqdm.write(
-                    f"Photo {photo.filename()} in database but ismissing flag set; path: {photo.path()}"
+                    f"Missing photo: '{photo.filename()}' in database but ismissing flag set; path: {photo.path()}"
                 )
-            else:
+            elif not _args.showmissing:
                 # TODO: pass _args.test as test=
                 process_photo(photo)
     else:
