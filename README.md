@@ -1,4 +1,5 @@
-### Summary ###
+# Summary
+
 This script will extract known metadata from Apple's Photos library and
 write this metadata to EXIF/IPTC/XMP fields in the photo file
 For example: Photos knows about Faces (personInImage) but does not
@@ -19,27 +20,36 @@ faces and keywords are merged with any data found in destination file (removing 
 Optionally, will write keywords and/or faces (persons) to
   Mac OS native keywords (xattr kMDItemUserTags)
 
-### Dependencies ###
-  exiftool by Phil Harvey:
-      https://www.sno.phy.queensu.ca/~phil/exiftool/
+## Installation
 
-This code was inspired by photo-export by Patrick Fältström see:
-  https://github.com/patrikhson/photo-export
-  Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
+I recommend using [pipx](https://github.com/pipxproject/pipx)
 
-### See Also ###
+`pipx install --spec git+https://github.com/RhetTbull/photosmeta.git photosmeta`
+
+or install using setup.py:
+
+`python setup.py install`
+
+## Dependencies
+
+  [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey:
+
+This code was inspired by [photo-export](https://github.com/patrikhson/photo-export) Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
+
+## See Also
 
    [osxphotos](https://github.com/RhetTbull/osxphotos) python module for manipulating Apple's Photos library
-	
+
    [photos-export](https://github.com/orangeturtle739/photos-export) does something similar for older versions of the Photos database
 
    [pyexifinfo](https://github.com/guinslym/pyexifinfo) Python wrapper for [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/)
 
+## Warning
 
-### Warning ###
-NOTE: This is my very first python project. Using this script might
-completely destroy your Photos library.  You have been warned! :-)
+This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script.
 
-### License ###
+Tested with Mac OS 10.13.6 / Photos Version 3.0 (3291.13.210) and with Mac OS 10.14.6 / Photos Version 4.0 (3461.7.140)
 
-See LICENSE.md
+## License
+
+MIT License, see LICENSE.md
