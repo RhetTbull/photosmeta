@@ -56,7 +56,6 @@
 # # filename = _dbfile
 # # verbose("filename = %s" % filename)
 
-# # TODO: replace os.path with pathlib
 # # TODO: clean this up -- we'll already know library_path
 # library_path = os.path.dirname(filename)
 # (library_path, tmp) = os.path.split(library_path)
@@ -76,9 +75,7 @@ import pprint
 import re
 import subprocess
 import sys
-import time
-from datetime import datetime
-from pathlib import Path
+from functools import lru_cache
 
 import osxmetadata
 import osxphotos
@@ -88,7 +85,6 @@ from tqdm import tqdm
 # Globals
 _version = "1.1.0"
 _debug = False
-_exiftool = None  # will hold path to exiftools
 _args = None  # command line args as processed by argparse
 _verbose = False  # print verbose output
 _dbfile = None  # will hold path to the Photos sqlite3 database file
@@ -232,9 +228,9 @@ def verbose(s):
     if _verbose:
         tqdm.write(s)
 
-
+@lru_cache(maxsize=1)
 def get_exiftool_path():
-    global _exiftool
+    """ return path of exiftool, cache result """
     result = subprocess.run(["which", "exiftool"], stdout=subprocess.PIPE)
     exiftool_path = result.stdout.decode("utf-8")
     if _debug:
@@ -258,8 +254,8 @@ def get_exif_info_as_json(photopath):
         raise ValueError("Photopath %s does not appear to be valid file" % photopath)
         return
 
-    _exiftool = get_exiftool_path()
-    exif_cmd = [_exiftool, "-G", "-j", "-sort", photopath]
+    exiftool = get_exiftool_path()
+    exif_cmd = [exiftool, "-G", "-j", "-sort", photopath]
 
     try:
         proc = subprocess.run(exif_cmd, check=True, stdout=subprocess.PIPE)
@@ -301,7 +297,7 @@ def process_photo(photo):
     # TODO: Update to use is_missing()
     photopath = photo.path()
     if not photopath:
-        tqdm.write(f"WARNING: photo {photopath} does not appear to exist; skipping")
+        tqdm.write(f"WARNING: photo '{photo.name()}' does not appear to exist; skipping")
         return
 
     # get existing metadata
@@ -356,8 +352,9 @@ def process_photo(photo):
         exif_cmd.append("-P")
 
         # add photopath as last argument
+        exiftool = get_exiftool_path()
         exif_cmd.append(photopath)
-        exif_cmd.insert(0, _exiftool)
+        exif_cmd.insert(0, exiftool)
         if _debug:
             print(f"running: {exif_cmd}")
 
@@ -410,9 +407,7 @@ def main():
     global _verbose
     global _dbfile
     global _args
-    global _exiftool
 
-    _exiftool = get_exiftool_path()
     # setup_applescript()
     process_arguments()
 
