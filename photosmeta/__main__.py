@@ -28,7 +28,6 @@
 # ## THINGS TODO ###
 # todo: position data (lat / lon)
 # todo: option to export then apply tags (e.g. don't tag original)
-# todo: cleanup single/double quotes
 # todo: standardize/cleanup exception handling in helper functions
 # todo: how are live photos handled
 # todo: use -stay_open with exiftool to aviod repeated subprocess calls
@@ -58,7 +57,7 @@ import osxmetadata
 import osxphotos
 from tqdm import tqdm
 
-# TODO: cleanup globals
+# TODO: cleanup globals to minimize number of them
 # Globals
 _version = "1.1.0"
 _debug = False
