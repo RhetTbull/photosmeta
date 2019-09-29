@@ -457,7 +457,6 @@ def main():
     # collect list of files to process
     # for now, all conditions (albums, keywords, uuid, faces) are considered "OR"
     # e.g. --keyword=family --album=Vacation finds all photos with keyword family OR album Vacation
-    # todo: a lot of repetitive code here
 
     if _args.all:
         # process all the photos
