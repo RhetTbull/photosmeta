@@ -45,8 +45,8 @@
 
 
 import argparse
+import itertools
 import json
-import os.path
 import pprint
 import re
 import subprocess
@@ -56,6 +56,8 @@ from functools import lru_cache
 import osxmetadata
 import osxphotos
 from tqdm import tqdm
+
+from ._util import build_list, check_file_exists, copyfile_with_osx_metadata
 
 # TODO: cleanup globals to minimize number of them
 # Globals
@@ -85,7 +87,8 @@ def process_arguments():
     # one required argument: path to database file
     # parser.add_argument("DATABASE_FILE", help="path to Photos database file")
     parser.add_argument(
-        "--database", help="database file [will default to Photos default file]"
+        "--database",
+        help="database file [will default to database last opened by Photos]",
     )
     parser.add_argument(
         "-v",
@@ -174,13 +177,17 @@ def process_arguments():
         "May be combined with --xattrtag "
         "CAUTION: this overwrites all existing kMDItemUserTags (to be fixed in future release)",
     )
-
     parser.add_argument(
         "--list",
         action="append",
         choices=["keyword", "album", "person"],
         help="list keywords, albums, persons found in database then exit: "
         "--list=keyword, --list=album, --list=person",
+    )
+    parser.add_argument(
+        "--export",
+        help="export photos before applying metadata; set EXPORT to the export path "
+        "will leave photos in the Photos library unchanged and only add metadata to the exported photos",
     )
 
     # if no args, show help and exit
@@ -194,14 +201,6 @@ def process_arguments():
 
     if _args.keyword is not None:
         print("keywords: " + " ".join(_args.keyword))
-
-
-def check_file_exists(filename):
-    """ return true if a file exists on disk and is not a directory, """
-    """ otherwise return false """
-
-    filename = os.path.abspath(filename)
-    return os.path.exists(filename) and not os.path.isdir(filename)
 
 
 def verbose(s):
@@ -257,22 +256,10 @@ def get_exif_info_as_json(photopath):
     return j
 
 
-def build_list(lst):
-    """ input: array of elements that may be a string or list """
-    """ returns: appends all input items to a list and returns the list """
-    tmplst = []
-    for x in lst:
-        if x is not None:
-            if isinstance(x, list):
-                tmplst = tmplst + x
-            else:
-                tmplst.append(x)
-    return tmplst
-
-
-def process_photo(photo, test=False):
+def process_photo(photo, test=False, export=None):
     """ process a photo using exiftool to write metadata to image file """
     """ test: run in test mode (don't actually process anything) """
+    """ export: must be a path; if not None, all photos will be exported to export path before processing """
     global _args
 
     exif_cmd = []
@@ -405,6 +392,7 @@ def main():
         print(f"Version: {_version}")
         sys.exit(0)
 
+    # Will hold the OSXPhotos.PhotoDB object
     photosdb = None
 
     if not _args.force:
@@ -453,10 +441,10 @@ def main():
             print("-" * 60)
         sys.exit(0)
 
-    photos = []
     # collect list of files to process
     # for now, all conditions (albums, keywords, uuid, faces) are considered "OR"
     # e.g. --keyword=family --album=Vacation finds all photos with keyword family OR album Vacation
+    photos = []
 
     if _args.all:
         # process all the photos
@@ -491,7 +479,7 @@ def main():
                     f"Missing photo: '{photo.filename()}' in database but ismissing flag set; path: {photo.path()}"
                 )
             elif not _args.showmissing:
-                process_photo(photo, test=_args.test)
+                process_photo(photo, test=_args.test, export=_args.export)
     else:
         tqdm.write("No photos found to process")
 
