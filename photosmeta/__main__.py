@@ -187,7 +187,8 @@ def process_arguments():
     parser.add_argument(
         "--export",
         help="export photos before applying metadata; set EXPORT to the export path "
-        "will leave photos in the Photos library unchanged and only add metadata to the exported photos",
+        "will leave photos in the Photos library unchanged and only add metadata to the exported photos"
+        " *** NOT YET IMPLEMENTED ***",
     )
 
     # if no args, show help and exit
