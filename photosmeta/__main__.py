@@ -34,8 +34,7 @@
 # todo: right now, options (keyword, person, etc) are OR...add option for AND
 #         e.g. only process photos in album=Test AND person=Joe
 # todo: options to add:
-# --save_backup (save original file)
-# --export (export file instead of edit in place)
+# --exportbydate to create date folders in export folder (e.g. 2019/10/05/file.jpg, etc)
 # todo: test cases:
 #     1) photo edited in Photos
 #     2) photo edited in external editor
@@ -52,6 +51,7 @@ import re
 import subprocess
 import sys
 from functools import lru_cache
+from pathlib import Path
 
 import osxmetadata
 import osxphotos
@@ -188,7 +188,6 @@ def process_arguments():
         "--export",
         help="export photos before applying metadata; set EXPORT to the export path "
         "will leave photos in the Photos library unchanged and only add metadata to the exported photos"
-        " *** NOT YET IMPLEMENTED ***",
     )
 
     # if no args, show help and exit
@@ -260,7 +259,9 @@ def get_exif_info_as_json(photopath):
 def process_photo(photo, test=False, export=None):
     """ process a photo using exiftool to write metadata to image file """
     """ test: run in test mode (don't actually process anything) """
-    """ export: must be a path; if not None, all photos will be exported to export path before processing """
+    """ export: must be a valid path; if not None, all photos will be exported to export path before processing """
+    """         will test to verify export is valid directory; """
+    """         if file exists in export path, new file will be created with name filename (1).jpg, filename (2).jpg, etc """
     global _args
 
     exif_cmd = []
@@ -273,6 +274,22 @@ def process_photo(photo, test=False, export=None):
             f"(ismissing={photo.ismissing()}, path='{photopath}'); skipping"
         )
         return
+
+    # if export path set, then copy file before applying metadata
+    if export:
+        destpath = Path(export).expanduser()
+        if not destpath.is_dir():
+            raise (ValueError(f"export path '{export}' does not exist"))
+        try:
+            # copyfile_with_osx_metadata returns path of copied file
+            # set photo path to that
+            verbose(f"Exporting {photopath} to {destpath}")
+            photopath = copyfile_with_osx_metadata(photopath, destpath)
+        except Exception as e:
+            sys.exit(
+                f"ERROR: {e} copying file {photopath} to {destpath}."
+                " Verify that destination path exists and is writeable"
+            )
 
     # get existing metadata
     j = get_exif_info_as_json(photopath)
@@ -319,7 +336,7 @@ def process_photo(photo, test=False, export=None):
 
     # only run exiftool if something to update
     if exif_cmd:
-        if _args.inplace:
+        if _args.inplace or export:
             exif_cmd.append("-overwrite_original_in_place")
 
         # -P = preserve timestamp
@@ -371,7 +388,7 @@ def process_photo(photo, test=False, export=None):
                 for tag in taglist:
                     meta.tags += tag
             except Exception as e:
-                sys.exit(f"Error: {e}")
+                sys.exit(f"ERROR: {e}")
         else:
             verbose(f"TEST: applied extended attributes to {photo.filename()}")
 

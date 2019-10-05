@@ -30,6 +30,71 @@ or install using setup.py:
 
 `python setup.py install`
 
+## Usage
+
+```
+usage: photosmeta [-h] [--database DATABASE] [-v] [-f] [--test]
+                   [--keyword KEYWORD] [--album ALBUM] [--person PERSON]
+                   [--uuid UUID] [--all] [--inplace] [--showmissing]
+                   [--noprogress] [--version] [--xattrtag] [--xattrperson]
+                   [--list {keyword,album,person}] [--export EXPORT]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --database DATABASE   database file [will default to database last opened by
+                        Photos]
+  -v, --verbose         print verbose output
+  -f, --force           Do not prompt before processing
+  --test                list files to be updated but do not actually udpate
+                        meta data
+  --keyword KEYWORD     only process files containing keyword
+  --album ALBUM         only process files contained in album
+  --person PERSON       only process files tagged with person
+  --uuid UUID           only process file matching UUID
+  --all                 process all photos in the database
+  --inplace             modify all photos in place (don't create backups). If
+                        you don't use this option, exiftool will create a
+                        backup image with format filename.extension_original
+                        in the same folder as the original image
+  --showmissing         show photos which are in the database but missing from
+                        disk. Will *not* process other photos--e.g. will not
+                        modify metadata.For example, this can happen because
+                        the photo has not been downloaded from iCloud.
+  --noprogress          do not show progress bar; helpful with --verbose
+  --version             show version number and exit
+  --xattrtag            write tags/keywords to file's extended attributes
+                        (kMDItemUserTags) so you can search in spotlight using
+                        'tag:' May be combined with -xattrperson CAUTION: this
+                        overwrites all existing kMDItemUserTags (to be fixed
+                        in future release)
+  --xattrperson         write person (faces) to file's extended attributes
+                        (kMDItemUserTags) so you can search in spotlight using
+                        'tag:' May be combined with --xattrtag CAUTION: this
+                        overwrites all existing kMDItemUserTags (to be fixed
+                        in future release)
+  --list {keyword,album,person}
+                        list keywords, albums, persons found in database then
+                        exit: --list=keyword, --list=album, --list=person
+  --export EXPORT       export photos before applying metadata; set EXPORT to
+                        the export path will leave photos in the Photos
+                        library unchanged and only add metadata to the
+                        exported photos
+```
+
+## Examples
+
+Update metadata for all photos in the Photos database.  Do not create backups of the image files (modify inplace):
+
+```
+photosmeta --all --inplace
+```
+
+ Export all photos with keywords "Kids" to the Desktop and update their metadata.  Also set the OS X file tag so keywords/tags can be searched/seen in the Finder:
+
+ ```
+ photosmeta --keyword Kids --xattrtag --export ~/Desktop
+ ```
+
 ## Dependencies
 
   [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey:

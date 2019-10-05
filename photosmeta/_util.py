@@ -2,6 +2,7 @@
 
 import os.path
 import pathlib
+import subprocess
 
 import osxmetadata
 
@@ -68,8 +69,8 @@ def copyfile_with_osx_metadata(src, dest, overwrite_dest=False, findercomments=F
             count += 1
         dest = dest_new
 
-    # if error on cp, subprocess will raise CalledProcessError
-    subprocess.run(["cp", src, dest], check=True, stderr=subprocess.PIPE)
+    # if error on copy, subprocess will raise CalledProcessError
+    subprocess.run(["/usr/bin/ditto", src, dest], check=True, stderr=subprocess.PIPE)
 
     if findercomments:
         md_src = osxmetadata.OSXMetaData(src)
