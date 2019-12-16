@@ -113,7 +113,9 @@ This code was inspired by [photo-export](https://github.com/patrikhson/photo-exp
 
 This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script.
 
-Tested with Mac OS 10.13.6 / Photos Version 3.0 (3291.13.210) and with Mac OS 10.14.6 / Photos Version 4.0 (3461.7.140)
+Tested with MacOS 10.13.6 / Photos Version 3.0 (3291.13.210) and with MacOS 10.14.6 / Photos Version 4.0 (3461.7.140).  To use this with MacOS 10.15 / Photos 5, be sure you have the latest version of osxphotos: 
+
+`python -m pip install --upgrade osxphotos`
 
 ## License
 
