@@ -9,7 +9,7 @@
 # preserve this data when exporting the original photo
 
 # Metadata currently extracted and where it is placed:
-# Photos Faces --> XMP:PersonInImage, XMP:Subject
+# Photos Faces --> XMP:PersonInImage
 # Photos keywords --> XMP:TagsList, IPTC:Keywords
 # Photos title --> XMP:Title
 # Photos description --> IPTC:Caption-Abstract, EXIF:ImageDescription, XMP:Description
@@ -47,6 +47,7 @@
 import argparse
 import itertools
 import json
+import os.path
 import pprint
 import re
 import subprocess
@@ -258,6 +259,58 @@ def get_exif_info_as_json(photopath):
     return j
 
 
+def export_photo(
+    photo, dest, verbose, export_by_date, overwrite, export_edited, original_name
+):
+    """ Helper function for export that does the actual export
+        photo: PhotoInfo object
+        dest: destination path as string
+        verbose: boolean; print verbose output
+        export_by_date: boolean; create export folder in form dest/YYYY/MM/DD
+        overwrite: boolean; overwrite dest file if it already exists
+        original_name: boolean; use original filename instead of current filename
+        returns destination path of exported photo or None if photo was missing 
+    """
+
+    if photo.ismissing:
+        space = " " if not verbose else ""
+        tqdm.write(f"{space}Skipping missing photos {photo.filename}")
+        return None
+    elif not os.path.exists(photo.path):
+        space = " " if not verbose else ""
+        tqdm.write(
+            f"{space}WARNING: file {photo.path} is missing but ismissing=False, "
+            f"skipping {photo.filename}"
+        )
+        return None
+
+    filename = None
+    if original_name:
+        filename = photo.original_filename
+    else:
+        filename = photo.filename
+
+    if verbose:
+        tqdm.write(f"Exporting {photo.filename} as {filename}")
+
+    if export_by_date:
+        date_created = photo.date.timetuple()
+        dest = create_path_by_date(dest, date_created)
+
+    photo_path = photo.export(dest, filename, overwrite=overwrite)
+
+    # if export-edited, also export the edited version
+    # verify the photo has adjustments and valid path to avoid raising an exception
+    if export_edited and photo.hasadjustments and photo.path_edited is not None:
+        edited_name = pathlib.Path(filename)
+        edited_name = f"{edited_name.stem}_edited{edited_name.suffix}"
+        if verbose:
+            tqdm.write(f"Exporting edited version of {filename} as {edited_name}")
+        photo.export(dest, edited_name, overwrite=overwrite, edited=True)
+
+    return photo_path
+
+
 def process_photo(photo, test=False, export=None):
     """ process a photo using exiftool to write metadata to image file """
     """ test: run in test mode (don't actually process anything) """
@@ -268,9 +321,8 @@ def process_photo(photo, test=False, export=None):
 
     exif_cmd = []
 
-    # TODO: Update to use is_missing()
     photopath = photo.path
-    if not photopath or not check_file_exists(photopath):
+    if photo.ismissing or not photopath or not os.path.exists(photopath):
         tqdm.write(
             f"WARNING: skipping missing photo '{photo.filename}' "
             f"(ismissing={photo.ismissing}, path='{photopath}'); skipping"
@@ -279,19 +331,9 @@ def process_photo(photo, test=False, export=None):
 
     # if export path set, then copy file before applying metadata
     if export:
-        destpath = Path(export).expanduser()
-        if not destpath.is_dir():
-            raise (ValueError(f"export path '{export}' does not exist"))
-        try:
-            # copyfile_with_osx_metadata returns path of copied file
-            # set photo path to that
-            verbose(f"Exporting {photopath} to {destpath}")
-            photopath = copyfile_with_osx_metadata(photopath, destpath)
-        except Exception as e:
-            sys.exit(
-                f"ERROR: {e} copying file {photopath} to {destpath}."
-                " Verify that destination path exists and is writeable"
-            )
+        verbose(f"Exporting {photopath} to {export}")
+        if not test:
+            photopath = export_photo(photo, export, _verbose, False, True, False, False)
 
     # get existing metadata
     j = get_exif_info_as_json(photopath)
@@ -316,14 +358,15 @@ def process_photo(photo, test=False, export=None):
             exif_cmd.append(f"-keywords={keyword}")
 
     if photo.persons:
-        tmp1 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
+        # tmp1 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
         tmp2 = j[0]["XMP:PersonInImage"] if "XMP:PersonInImage" in j[0] else None
         #        print ("photopath %s tmp1 = '%s' tmp2 = '%s'" % (photopath, tmp1, tmp2))
-        persons_raw = build_list([photo.persons, tmp1, tmp2])
+        # persons_raw = build_list([photo.persons, tmp1, tmp2])
+        persons_raw = build_list([photo.persons, tmp2])
         persons_raw = set(persons_raw)
         for person in persons_raw:
             exif_cmd.append(f"-xmp:PersonInImage={person}")
-            exif_cmd.append(f"-subject={person}")
+            # exif_cmd.append(f"-subject={person}")
 
     # desc = desc or _dbphotos[uuid]["extendedDescription"]
     desc = photo.description
@@ -382,7 +425,7 @@ def process_photo(photo, test=False, export=None):
         if _args.xattrperson and persons_raw:
             taglist = build_list([taglist, list(persons_raw)])
 
-        verbose("applying extended attributes")
+        verbose("Applying extended attributes")
 
         if not test:
             try:
@@ -411,6 +454,11 @@ def main():
     if _args.version:
         print(f"Version: {__version__}")
         sys.exit(0)
+
+    if _args.export:
+        # verify export path is valid
+        if not os.path.isdir(_args.export):
+            sys.exit(f"export path {_args.export} must be valid path")
 
     # Will hold the OSXPhotos.PhotoDB object
     photosdb = None

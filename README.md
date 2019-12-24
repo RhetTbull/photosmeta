@@ -1,12 +1,17 @@
 # Summary
 
-This script will extract known metadata from Apple's Photos library and
-write this metadata to EXIF/IPTC/XMP fields in the photo file
-For example: Photos knows about Faces (personInImage) but does not
-preserve this data when exporting the original photo
+This script will extract known metadata from Apple's Photos library and write this metadata to EXIF/IPTC/XMP fields in the photo file. For example: Photos knows about Faces (personInImage) but does not preserve this data when exporting the original photo. Using photosmeta, you can export photos while preserving the metadata such as Faces, keywords, etc.  This script can also be run to modify your Photos library in place so that you can find photos in your Photos database using Spotlight.  For example, after installing, run:
+
+`python3 -m photosmeta --inplace --all` 
+
+or 
+
+`photosmeta --inplace --all`
+
+then in the Spotlight bar, searching for "tag:kids" will find all photos in Photos with keyword="kids" and open those files directly in Photos. 
 
 Metadata currently extracted and where it is placed:
-Photos Faces --> XMP:PersonInImage, XMP:Subject
+Photos Faces --> XMP:PersonInImage
 
 Photos keywords --> XMP:TagsList, IPTC:Keywords
 
@@ -103,20 +108,18 @@ This code was inspired by [photo-export](https://github.com/patrikhson/photo-exp
 
 ## See Also
 
-   [osxphotos](https://github.com/RhetTbull/osxphotos) python module for manipulating Apple's Photos library
+   [osxphotos](https://github.com/RhetTbull/osxphotos) python module for manipulating Apple's Photos library.  Used by photosmeta to do read the Photos database.
 
-   [photos-export](https://github.com/orangeturtle739/photos-export) does something similar for older versions of the Photos database
+   [photos-export](https://github.com/orangeturtle739/photos-export) does something similar for older versions of the Photos database.
 
-   [pyexifinfo](https://github.com/guinslym/pyexifinfo) Python wrapper for [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/)
+   [pyexifinfo](https://github.com/guinslym/pyexifinfo) Python wrapper for [exiftool](https://exiftool.org/)
 
 ## Warning
 
-This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script, especially if using --inplace and not using --export.
+This script may modify files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script, especially if using --inplace and not using --export.  See [license](LICENSE.md): this software is "provided \"as-is\", without warranty of any kind..."
 
-Tested with MacOS 10.13.6 / Photos Version 3.0 (3291.13.210), MacOS 10.14.6 / Photos Version 4.0 (3461.7.140), and MacOS 10.15.1 / Photos 5.0 (111.16.180).  To use this with MacOS 10.15 / Photos 5, be sure you have the latest version of osxphotos: 
-
-`python3 -m pip install --upgrade osxphotos`
+Tested with MacOS 10.13.6 / Photos Version 3.0 (3291.13.210), MacOS 10.14.6 / Photos Version 4.0 (3461.7.140), and MacOS 10.15.1 / Photos 5.0 (111.16.180). 
 
 ## License
 
-MIT License, see LICENSE.md
+[MIT License](LICENSE.md)
