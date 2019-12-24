@@ -128,7 +128,7 @@ This code was inspired by [photo-export](https://github.com/patrikhson/photo-exp
 
 ## See Also
 
-   [osxphotos](https://github.com/RhetTbull/osxphotos) python module for manipulating Apple's Photos library.  Used by photosmeta to do read the Photos database.
+   [osxphotos](https://github.com/RhetTbull/osxphotos) python module for manipulating Apple's Photos library.  Used by photosmeta to read the Photos database.
 
    [photos-export](https://github.com/orangeturtle739/photos-export) does something similar for older versions of the Photos database.
 
