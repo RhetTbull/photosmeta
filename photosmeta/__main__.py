@@ -227,6 +227,12 @@ def process_arguments():
         "Warning: recommend --edited not be used with --inplace as it can cause errors when "
         "opening the photo in Photos.app",
     )
+    parser.add_argument(
+        "--original-name",
+        action="store_true",
+        default=False,
+        help="Use photo's original filename instead of current filename for export",
+    )
 
     # if no args, show help and exit
     if len(sys.argv) == 1:
@@ -344,6 +350,7 @@ def process_photo(
     xattrperson=False,
     export_by_date=False,
     edited=False,
+    original_name=False,
 ):
     """ process a photo using exiftool to write metadata to image file 
         test: run in test mode (don't actually process anything) 
@@ -354,7 +361,8 @@ def process_photo(
         xattrtag: apply keywords to extended attribute tags 
         xattrperson: apply person name to extended attribute tags 
         export_by_date: if export path is not None, will create sub-folders in export based on photo creation date
-        edited: also modify (inplace) or export edited version if one exits """
+        edited: also modify (inplace) or export edited version if one exits
+        original_name: use original filename instead of current filename for export """
 
     exif_cmd = []
 
@@ -372,7 +380,7 @@ def process_photo(
         if not test:
             # photo, dest, verbose, export_by_date, overwrite, export_edited, original_name
             photopath = export_photo(
-                photo, export, _VERBOSE, export_by_date, False, edited, False
+                photo, export, _VERBOSE, export_by_date, False, edited, original_name
             )
 
     # get existing metadata
@@ -606,6 +614,7 @@ def main():
                     xattrperson=args.xattrperson,
                     export_by_date=args.export_by_date,
                     edited=args.edited,
+                    original_name=args.original_name,
                 )
     else:
         tqdm.write("No photos found to process")
