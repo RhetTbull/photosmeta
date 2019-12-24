@@ -250,16 +250,13 @@ def get_exiftool_path():
     result = subprocess.run(["which", "exiftool"], stdout=subprocess.PIPE)
     exiftool_path = result.stdout.decode("utf-8")
     logging.debug("exiftool path = %s" % (exiftool_path))
-    if exiftool_path is not "":
+    if exiftool_path:
         return exiftool_path.rstrip()
     else:
-        print(
+        sys.exit(
             "Could not find exiftool. Please download and install from "
-            "https://www.sno.phy.queensu.ca/~phil/exiftool/",
-            file=sys.stderr,
+            "https://exiftool.org/"
         )
-        errstr = "Could not find exiftool"
-        sys.exit(errstr)
 
 
 def get_exif_info_as_json(photopath):
