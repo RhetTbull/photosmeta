@@ -28,6 +28,7 @@ def build_list(lst):
     return tmplst
 
 
+# TODO: remove this, I don't think it's needed now
 def copyfile_with_osx_metadata(src, dest, overwrite_dest=False, findercomments=False):
     """ copy file from src (source) to dest (destination) """
     """ src is path with filename, dest is path only """

@@ -47,7 +47,9 @@
 import argparse
 import itertools
 import json
+import logging
 import os.path
+import pathlib
 import pprint
 import re
 import subprocess
@@ -57,16 +59,39 @@ from pathlib import Path
 
 import osxmetadata
 import osxphotos
+from osxphotos.utils import create_path_by_date
 from tqdm import tqdm
 
-from ._util import build_list, check_file_exists, copyfile_with_osx_metadata
+from ._util import build_list, check_file_exists
 from ._version import __version__
 
 # TODO: cleanup globals to minimize number of them
 # Globals
-_debug = False
-_args = None  # command line args as processed by argparse
-_verbose = False  # print verbose output
+_VERBOSE = False  # print verbose output
+# set _DEBUG = True to enable debug output
+_DEBUG = False
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s",
+)
+
+if not _DEBUG:
+    logging.disable(logging.DEBUG)
+
+
+def _debug(debug):
+    """ Enable or disable debug logging """
+    if debug:
+        logging.disable(logging.NOTSET)
+    else:
+        logging.disable(logging.DEBUG)
+
+
+def verbose(s):
+    """ print s if global _VERBOSE == True """
+    if _VERBOSE:
+        tqdm.write(s)
 
 
 # custom argparse class to show help if error triggered
@@ -78,11 +103,7 @@ class MyParser(argparse.ArgumentParser):
 
 
 def process_arguments():
-    """ Process command line args, returns args in global _args, """
-    """ also sets global _verbose and global _debug as convenience """
-    global _args
-    global _verbose
-    global _debug
+    """ Process command line args, returns args in args """
 
     # Setup command line arguments
     parser = MyParser()
@@ -192,24 +213,30 @@ def process_arguments():
         help="export photos before applying metadata; set EXPORT to the export path "
         "will leave photos in the Photos library unchanged and only add metadata to the exported photos",
     )
+    parser.add_argument(
+        "--export-by-date",
+        action="store_true",
+        default=False,
+        help="Automatically create output folders to organize photos "
+        "by date created (e.g. DEST/2019/12/20/photoname.jpg).",
+    )
+    # parser.add_argument(
+    #     "--edited",
+    #     action="store_true",
+    #     default=False,
+    #     help="Also update or export edited version of photo if one exists; "
+    #     "if exported, edited version will be named photoname_edited.ext where "
+    #     "photoname is name of original photo and ext is extension of original photo",
+    # )
 
     # if no args, show help and exit
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
-        sys.exit(1)
+        sys.exit(0)
 
-    _args = parser.parse_args()
-    _verbose = _args.verbose
-    _debug = _args.debug
+    args = parser.parse_args()
 
-    if _args.keyword is not None:
-        print("keywords: " + " ".join(_args.keyword))
-
-
-def verbose(s):
-    """ print s if global _verbose == True """
-    if _verbose:
-        tqdm.write(s)
+    return args
 
 
 @lru_cache(maxsize=1)
@@ -217,8 +244,7 @@ def get_exiftool_path():
     """ return path of exiftool, cache result """
     result = subprocess.run(["which", "exiftool"], stdout=subprocess.PIPE)
     exiftool_path = result.stdout.decode("utf-8")
-    if _debug:
-        print("exiftool path = %s" % (exiftool_path))
+    logging.debug("exiftool path = %s" % (exiftool_path))
     if exiftool_path is not "":
         return exiftool_path.rstrip()
     else:
@@ -246,13 +272,12 @@ def get_exif_info_as_json(photopath):
     except subprocess.CalledProcessError as e:
         sys.exit("subprocess error calling command %s %s: " % (exif_cmd, e))
     else:
-        if _debug:
-            print("returncode: %d" % proc.returncode)
-            print(
-                "Have {} bytes in stdout:\n{}".format(
-                    len(proc.stdout), proc.stdout.decode("utf-8")
-                )
+        logging.debug("returncode: %d" % proc.returncode)
+        logging.debug(
+            "Have {} bytes in stdout:\n{}".format(
+                len(proc.stdout), proc.stdout.decode("utf-8")
             )
+        )
 
     j = json.loads(proc.stdout.decode("utf-8").rstrip("\r\n"))
 
@@ -311,13 +336,24 @@ def export_photo(
     return photo_path
 
 
-def process_photo(photo, test=False, export=None):
-    """ process a photo using exiftool to write metadata to image file """
-    """ test: run in test mode (don't actually process anything) """
-    """ export: must be a valid path; if not None, all photos will be exported to export path before processing """
-    """         will test to verify export is valid directory; """
-    """         if file exists in export path, new file will be created with name filename (1).jpg, filename (2).jpg, etc """
-    global _args
+def process_photo(
+    photo,
+    test=False,
+    export=None,
+    inplace=False,
+    xattrtag=False,
+    xattrperson=False,
+    export_by_date=False,
+):
+    """ process a photo using exiftool to write metadata to image file 
+        test: run in test mode (don't actually process anything) 
+        export: must be a valid path; if not None, all photos will be exported to export path before processing 
+                will test to verify export is valid directory; 
+                if file exists in export path, new file will be created with name filename (1).jpg, filename (2).jpg, etc 
+        inplace: modify files in place (don't export) 
+        xattrtag: apply keywords to extended attribute tags 
+        xattrperson: apply person name to extended attribute tags 
+        export_by_date: if export path is not None, will create sub-folders in export based on photo creation date """
 
     exif_cmd = []
 
@@ -333,13 +369,15 @@ def process_photo(photo, test=False, export=None):
     if export:
         verbose(f"Exporting {photopath} to {export}")
         if not test:
-            photopath = export_photo(photo, export, _verbose, False, True, False, False)
+            # photo, dest, verbose, export_by_date, overwrite, export_edited, original_name
+            photopath = export_photo(
+                photo, export, _VERBOSE, export_by_date, True, False, False
+            )
 
     # get existing metadata
     j = get_exif_info_as_json(photopath)
 
-    if _debug:
-        print("json metadata for %s = %s" % (photopath, j))
+    logging.debug("json metadata for %s = %s" % (photopath, j))
 
     keywords = None
     persons = None
@@ -381,7 +419,7 @@ def process_photo(photo, test=False, export=None):
 
     # only run exiftool if something to update
     if exif_cmd:
-        if _args.inplace or export:
+        if inplace or export:
             exif_cmd.append("-overwrite_original_in_place")
 
         # -P = preserve timestamp
@@ -391,8 +429,7 @@ def process_photo(photo, test=False, export=None):
         exiftool = get_exiftool_path()
         exif_cmd.append(photopath)
         exif_cmd.insert(0, exiftool)
-        if _debug:
-            print(f"running: {exif_cmd}")
+        logging.debug(f"running: {exif_cmd}")
 
         if not test:
             try:
@@ -402,27 +439,25 @@ def process_photo(photo, test=False, export=None):
             except subprocess.CalledProcessError as e:
                 sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
             else:
-                if _debug:
-                    print("returncode: %d" % proc.returncode)
-                    print(
-                        "Have {} bytes in stdout:\n{}".format(
-                            len(proc.stdout), proc.stdout.decode("utf-8")
-                        )
+                logging.debug("returncode: %d" % proc.returncode)
+                logging.debug(
+                    "Have {} bytes in stdout:\n{}".format(
+                        len(proc.stdout), proc.stdout.decode("utf-8")
                     )
+                )
                 verbose(proc.stdout.decode("utf-8"))
         else:
             verbose(f"TEST: Processed {photo.filename}")
-            if _debug:
-                tqdm.write(f"TEST: {exif_cmd}")
+            logging.debug(f"TEST: {exif_cmd}")
     else:
         verbose(f"Skipping photo {photopath}, nothing to do")
 
     # update xattr tags if requested
-    if (_args.xattrtag and keywords_raw) or (_args.xattrperson and persons_raw):
+    if (xattrtag and keywords_raw) or (xattrperson and persons_raw):
         taglist = []
-        if _args.xattrtag and keywords_raw:
+        if xattrtag and keywords_raw:
             taglist = build_list([taglist, list(keywords_raw)])
-        if _args.xattrperson and persons_raw:
+        if xattrperson and persons_raw:
             taglist = build_list([taglist, list(persons_raw)])
 
         verbose("Applying extended attributes")
@@ -442,28 +477,31 @@ def process_photo(photo, test=False, export=None):
 
 def main():
     """ main function for the script """
-    """ globals: _args, _verbose, _debug """
+    """ globals: _VERBOSE (print verbose output) """
     """ processes arguments, loads the Photos database, """
     """ finds matching photos, then processes each one """
-    global _args
-    global _verbose
-    global _debug
+    global _VERBOSE
 
-    process_arguments()
+    args = process_arguments()
+    if args.verbose:
+        _VERBOSE = True
 
-    if _args.version:
+    if args.debug:
+        _debug(True)
+
+    if args.version:
         print(f"Version: {__version__}")
         sys.exit(0)
 
-    if _args.export:
+    if args.export:
         # verify export path is valid
-        if not os.path.isdir(_args.export):
-            sys.exit(f"export path {_args.export} must be valid path")
+        if not os.path.isdir(args.export):
+            sys.exit(f"export path {args.export} must be valid path")
 
     # Will hold the OSXPhotos.PhotoDB object
     photosdb = None
 
-    if not _args.force:
+    if not args.force:
         # prompt user to continue
         print("Caution: This script may modify your photos library")
         # TODO: modify oxphotos to get this info as module level call
@@ -476,11 +514,9 @@ def main():
         if ans.upper() != "Y":
             sys.exit(0)
 
-    if any(
-        [_args.all, _args.album, _args.keyword, _args.person, _args.uuid, _args.list]
-    ):
+    if any([args.all, args.album, args.keyword, args.person, args.uuid, args.list]):
         print("Loading database...")
-        photosdb = osxphotos.PhotosDB(dbfile=_args.database)
+        photosdb = osxphotos.PhotosDB(dbfile=args.database)
         print(f"Loaded database {photosdb.db_path}")
     else:
         print(
@@ -489,20 +525,20 @@ def main():
         )
         sys.exit(0)
 
-    if _args.list:
-        if "keyword" in _args.list or "all" in _args.list:
+    if args.list:
+        if "keyword" in args.list or "all" in args.list:
             print("Keywords/tags (photo count): ")
             for keyword, count in photosdb.keywords_as_dict.items():
                 print(f"\t{keyword} ({count})")
             print("-" * 60)
 
-        if "person" in _args.list or "all" in _args.list:
+        if "person" in args.list or "all" in args.list:
             print("Persons (photo count): ")
             for person, count in photosdb.persons_as_dict.items():
                 print(f"\t{person} ({count})")
             print("-" * 60)
 
-        if "album" in _args.list or "all" in _args.list:
+        if "album" in args.list or "all" in args.list:
             print("Albums (photo count): ")
             for album, count in photosdb.albums_as_dict.items():
                 print(f"\t{album} ({count})")
@@ -514,39 +550,47 @@ def main():
     # e.g. --keyword=family --album=Vacation finds all photos with keyword family OR album Vacation
     photos = []
 
-    if _args.all:
+    if args.all:
         # process all the photos
         photos = photosdb.photos()
     else:
-        if _args.album is not None:
-            photos.extend(photosdb.photos(albums=_args.album))
+        if args.album is not None:
+            photos.extend(photosdb.photos(albums=args.album))
 
-        if _args.uuid is not None:
-            photos.extend(photosdb.photos(uuid=_args.uuid))
+        if args.uuid is not None:
+            photos.extend(photosdb.photos(uuid=args.uuid))
 
-        if _args.keyword is not None:
-            photos.extend(photosdb.photos(keywords=_args.keyword))
+        if args.keyword is not None:
+            photos.extend(photosdb.photos(keywords=args.keyword))
 
-        if _args.person is not None:
-            photos.extend(photosdb.photos(persons=_args.person))
+        if args.person is not None:
+            photos.extend(photosdb.photos(persons=args.person))
 
-    if _debug:
+    if _DEBUG:
         pp = pprint.PrettyPrinter(indent=4)
-        print("Photos to process:")
-        pp.pprint(photos)
+        logging.debug("Photos to process:")
+        logging.debug(pp.pformat(photos))
 
     # process each photo
     # if showmissing=True, only list missing photos, don't process them
     if len(photos) > 0:
         tqdm.write(f"Processing {len(photos)} photo(s)")
-        for photo in tqdm(iterable=photos, disable=_args.noprogress):
+        for photo in tqdm(iterable=photos, disable=args.noprogress):
             verbose(f"processing photo: {photo.filename} {photo.path}")
-            if photo.ismissing and _args.showmissing:
+            if photo.ismissing and args.showmissing:
                 tqdm.write(
                     f"Missing photo: '{photo.filename}' in database but ismissing flag set; path: {photo.path}"
                 )
-            elif not _args.showmissing:
-                process_photo(photo, test=_args.test, export=_args.export)
+            elif not args.showmissing:
+                process_photo(
+                    photo,
+                    test=args.test,
+                    export=args.export,
+                    inplace=args.inplace,
+                    xattrtag=args.xattrtag,
+                    xattrperson=args.xattrperson,
+                    export_by_date=args.export_by_date,
+                )
     else:
         tqdm.write("No photos found to process")
 

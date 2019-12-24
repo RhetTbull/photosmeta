@@ -9,9 +9,9 @@ lazy-object-proxy==1.4.3
 macholib==1.11
 mccabe==0.6.1
 osxmetadata==0.96.87
-osxphotos==0.17.2
+osxphotos==0.17.6
 pefile==2019.4.18
--e git+git@github.com:RhetTbull/photosmeta.git@38c45471eb2a13e5dfe803c51de23d7c99318507#egg=photosmeta
+-e git+git@github.com:RhetTbull/photosmeta.git@98ab13c8d84e45b289d9567646ea47bc515d796c#egg=photosmeta
 pycparser==2.19
 PyInstaller==3.4
 pyinstaller-setuptools==2019.3
