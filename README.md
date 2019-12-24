@@ -38,20 +38,21 @@ or install using setup.py:
 ## Usage
 
 ```
-usage: photosmeta [-h] [--database DATABASE] [-v] [-f] [--test]
-                   [--keyword KEYWORD] [--album ALBUM] [--person PERSON]
-                   [--uuid UUID] [--all] [--inplace] [--showmissing]
-                   [--noprogress] [--version] [--xattrtag] [--xattrperson]
-                   [--list {keyword,album,person}] [--export EXPORT]
+usage: photosmeta [-h] [--database DATABASE] [--verbose] [-f] [--test]
+                  [--keyword KEYWORD] [--album ALBUM] [--person PERSON]
+                  [--uuid UUID] [--all] [--inplace] [--showmissing]
+                  [--noprogress] [-v] [--xattrtag] [--xattrperson]
+                  [--list {keyword,album,person}] [--export EXPORT]
+                  [--export-by-date] [--edited] [--original-name]
 
 optional arguments:
   -h, --help            show this help message and exit
   --database DATABASE   database file [will default to database last opened by
                         Photos]
-  -v, --verbose         print verbose output
+  --verbose             print verbose output
   -f, --force           Do not prompt before processing
   --test                list files to be updated but do not actually udpate
-                        meta data
+                        meta data; most useful with --verbose
   --keyword KEYWORD     only process files containing keyword
   --album ALBUM         only process files contained in album
   --person PERSON       only process files tagged with person
@@ -66,7 +67,7 @@ optional arguments:
                         modify metadata.For example, this can happen because
                         the photo has not been downloaded from iCloud.
   --noprogress          do not show progress bar; helpful with --verbose
-  --version             show version number and exit
+  -v, --version         show version number and exit
   --xattrtag            write tags/keywords to file's extended attributes
                         (kMDItemUserTags) so you can search in spotlight using
                         'tag:' May be combined with -xattrperson CAUTION: this
@@ -81,9 +82,20 @@ optional arguments:
                         list keywords, albums, persons found in database then
                         exit: --list=keyword, --list=album, --list=person
   --export EXPORT       export photos before applying metadata; set EXPORT to
-                        the export path will leave photos in the Photos
+                        the export path; will leave photos in the Photos
                         library unchanged and only add metadata to the
                         exported photos
+  --export-by-date      Automatically create output folders to organize photos
+                        by date created (e.g. DEST/2019/12/20/photoname.jpg).
+  --edited              Also update or export edited version of photo if one
+                        exists; if exported, edited version will be named
+                        photoname_edited.ext where photoname is name of
+                        original photo and ext is extension of original photo.
+                        Warning: recommend --edited not be used with --inplace
+                        as it can cause errors when opening the photo in
+                        Photos.app
+  --original-name       Use photo's original filename instead of current
+                        filename for export
 ```
 
 ## Examples
@@ -94,11 +106,17 @@ Update metadata for all photos in the Photos database.  Do not create backups of
 photosmeta --all --inplace
 ```
 
- Export all photos with keywords "Kids" to the Desktop and update their metadata.  Also set the OS X file tag so keywords/tags can be searched/seen in the Finder:
+Export all photos with keywords "Kids" to the Desktop and update their metadata.  Also set the OS X file tag so keywords/tags can be searched/seen in the Finder:
 
- ```
- photosmeta --keyword Kids --xattrtag --export ~/Desktop
- ```
+```
+photosmeta --keyword Kids --xattrtag --export ~/Desktop
+```
+
+Export all photos to ~/Desktop/export and update their metadata.  Add person name as a spotlight tag.  Also export edited versions of the photos. Use original name instead of current name for exported photos. Organize exported photos in folders by creation date (e.g. ~/Desktop/export/2019/12/20/photo.jpg)
+
+```
+photosmeta --all --xattrtag --xattrperson --edited --original-name --export-by-date --export ~/Desktop/export
+```
 
 ## Dependencies
 
