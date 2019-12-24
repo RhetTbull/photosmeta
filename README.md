@@ -23,7 +23,9 @@ title and description are overwritten in the destination file
 faces and keywords are merged with any data found in destination file (removing duplicates)
 
 Optionally, will write keywords and/or faces (persons) to
-  Mac OS native keywords (xattr kMDItemUserTags)
+  Mac OS native keywords/tags (xattr kMDItemUserTags)
+  
+If you only want to export photos without updating metadata, I recommend you use the companion project [osxphotos](https://github.com/RhetTbull/osxphotos).  
 
 ## Installation
 
