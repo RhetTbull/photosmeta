@@ -28,7 +28,7 @@ I recommend using [pipx](https://github.com/pipxproject/pipx)
 
 or install using setup.py:
 
-`python setup.py install`
+`python3 setup.py install`
 
 ## Usage
 
