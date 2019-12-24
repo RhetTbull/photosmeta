@@ -26,7 +26,6 @@
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 # ## THINGS TODO ###
-# TODO: skip _UKNOWN_ person on Catalina
 # todo: position data (lat / lon)
 # todo: option to export then apply tags (e.g. don't tag original)
 # todo: standardize/cleanup exception handling in helper functions
@@ -408,6 +407,11 @@ def process_photo(
         # persons_raw = build_list([photo.persons, tmp1, tmp2])
         persons_raw = build_list([photo.persons, tmp2])
         persons_raw = set(persons_raw)
+
+        # Photos 5 identifies all faces even if unknown, remove these
+        if osxphotos._constants._UNKNOWN_PERSON in persons_raw:
+            persons_raw.remove(osxphotos._constants._UNKNOWN_PERSON)
+
         for person in persons_raw:
             exif_cmd.append(f"-xmp:PersonInImage={person}")
             # exif_cmd.append(f"-subject={person}")
