@@ -97,7 +97,7 @@ photosmeta --all --inplace
 
 ## Dependencies
 
-  [exiftool](https://www.sno.phy.queensu.ca/~phil/exiftool/) by Phil Harvey:
+  [exiftool](https://exiftool.org/) by Phil Harvey:
 
 This code was inspired by [photo-export](https://github.com/patrikhson/photo-export) Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
@@ -111,11 +111,11 @@ This code was inspired by [photo-export](https://github.com/patrikhson/photo-exp
 
 ## Warning
 
-This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script.
+This script modifies files in your Photos library.  Though I've done extensive testing, it's quite possible this could lead to data corruption or loss.  I highly recomend you have a complete backup of your Photos library before using this script, especially if using --inplace and not using --export.
 
-Tested with MacOS 10.13.6 / Photos Version 3.0 (3291.13.210) and with MacOS 10.14.6 / Photos Version 4.0 (3461.7.140).  To use this with MacOS 10.15 / Photos 5, be sure you have the latest version of osxphotos: 
+Tested with MacOS 10.13.6 / Photos Version 3.0 (3291.13.210), MacOS 10.14.6 / Photos Version 4.0 (3461.7.140), and MacOS 10.15.1 / Photos 5.0 (111.16.180).  To use this with MacOS 10.15 / Photos 5, be sure you have the latest version of osxphotos: 
 
-`python -m pip install --upgrade osxphotos`
+`python3 -m pip install --upgrade osxphotos`
 
 ## License
 

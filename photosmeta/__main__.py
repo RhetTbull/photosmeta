@@ -26,6 +26,7 @@
 #   Copyright (c) 2015 Patrik Fältström <paf@frobbit.se>
 
 # ## THINGS TODO ###
+# TODO: skip _UKNOWN_ person on Catalina
 # todo: position data (lat / lon)
 # todo: option to export then apply tags (e.g. don't tag original)
 # todo: standardize/cleanup exception handling in helper functions
@@ -58,10 +59,10 @@ import osxphotos
 from tqdm import tqdm
 
 from ._util import build_list, check_file_exists, copyfile_with_osx_metadata
+from ._version import __version__
 
 # TODO: cleanup globals to minimize number of them
 # Globals
-_version = "1.1.0"
 _debug = False
 _args = None  # command line args as processed by argparse
 _verbose = False  # print verbose output
@@ -111,7 +112,8 @@ def process_arguments():
         "--test",
         action="store_true",
         default=False,
-        help="list files to be updated but do not actually udpate meta data",
+        help="list files to be updated but do not actually udpate meta data; "
+        "most useful with --verbose",
     )
     parser.add_argument(
         "--keyword", action="append", help="only process files containing keyword"
@@ -187,7 +189,7 @@ def process_arguments():
     parser.add_argument(
         "--export",
         help="export photos before applying metadata; set EXPORT to the export path "
-        "will leave photos in the Photos library unchanged and only add metadata to the exported photos"
+        "will leave photos in the Photos library unchanged and only add metadata to the exported photos",
     )
 
     # if no args, show help and exit
@@ -267,11 +269,11 @@ def process_photo(photo, test=False, export=None):
     exif_cmd = []
 
     # TODO: Update to use is_missing()
-    photopath = photo.path()
+    photopath = photo.path
     if not photopath or not check_file_exists(photopath):
         tqdm.write(
-            f"WARNING: skipping missing photo '{photo.filename()}' "
-            f"(ismissing={photo.ismissing()}, path='{photopath}'); skipping"
+            f"WARNING: skipping missing photo '{photo.filename}' "
+            f"(ismissing={photo.ismissing}, path='{photopath}'); skipping"
         )
         return
 
@@ -303,34 +305,34 @@ def process_photo(photo, test=False, export=None):
     keywords_raw = None
     persons_raw = None
 
-    if photo.keywords():
+    if photo.keywords:
         # merge existing keywords, removing duplicates
         tmp1 = j[0]["IPTC:Keywords"] if "IPTC:Keywords" in j[0] else None
         tmp2 = j[0]["XMP:TagsList"] if "XMP:TagsList" in j[0] else None
-        keywords_raw = build_list([photo.keywords(), tmp1, tmp2])
+        keywords_raw = build_list([photo.keywords, tmp1, tmp2])
         keywords_raw = set(keywords_raw)
         for keyword in keywords_raw:
             exif_cmd.append(f"-XMP:TagsList={keyword}")
             exif_cmd.append(f"-keywords={keyword}")
 
-    if photo.persons():
+    if photo.persons:
         tmp1 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
         tmp2 = j[0]["XMP:PersonInImage"] if "XMP:PersonInImage" in j[0] else None
         #        print ("photopath %s tmp1 = '%s' tmp2 = '%s'" % (photopath, tmp1, tmp2))
-        persons_raw = build_list([photo.persons(), tmp1, tmp2])
+        persons_raw = build_list([photo.persons, tmp1, tmp2])
         persons_raw = set(persons_raw)
         for person in persons_raw:
             exif_cmd.append(f"-xmp:PersonInImage={person}")
             exif_cmd.append(f"-subject={person}")
 
     # desc = desc or _dbphotos[uuid]["extendedDescription"]
-    desc = photo.description()
+    desc = photo.description
     if desc:
         exif_cmd.append(f"-ImageDescription={desc}")
         exif_cmd.append(f"-xmp:description={desc}")
 
     # title = name
-    title = photo.name()
+    title = photo.title
     if title:
         exif_cmd.append(f"-xmp:title={title}")
 
@@ -366,7 +368,7 @@ def process_photo(photo, test=False, export=None):
                     )
                 verbose(proc.stdout.decode("utf-8"))
         else:
-            verbose(f"TEST: Processed {photo.filename()}")
+            verbose(f"TEST: Processed {photo.filename}")
             if _debug:
                 tqdm.write(f"TEST: {exif_cmd}")
     else:
@@ -390,7 +392,7 @@ def process_photo(photo, test=False, export=None):
             except Exception as e:
                 sys.exit(f"ERROR: {e}")
         else:
-            verbose(f"TEST: applied extended attributes to {photo.filename()}")
+            verbose(f"TEST: applied extended attributes to {photo.filename}")
 
     return
 
@@ -407,7 +409,7 @@ def main():
     process_arguments()
 
     if _args.version:
-        print(f"Version: {_version}")
+        print(f"Version: {__version__}")
         sys.exit(0)
 
     # Will hold the OSXPhotos.PhotoDB object
@@ -431,7 +433,7 @@ def main():
     ):
         print("Loading database...")
         photosdb = osxphotos.PhotosDB(dbfile=_args.database)
-        print(f"Loaded database {photosdb.get_db_path()}")
+        print(f"Loaded database {photosdb.db_path}")
     else:
         print(
             "You must select at least one of the following options: "
@@ -442,19 +444,19 @@ def main():
     if _args.list:
         if "keyword" in _args.list or "all" in _args.list:
             print("Keywords/tags (photo count): ")
-            for keyword, count in photosdb.keywords_as_dict().items():
+            for keyword, count in photosdb.keywords_as_dict.items():
                 print(f"\t{keyword} ({count})")
             print("-" * 60)
 
         if "person" in _args.list or "all" in _args.list:
             print("Persons (photo count): ")
-            for person, count in photosdb.persons_as_dict().items():
+            for person, count in photosdb.persons_as_dict.items():
                 print(f"\t{person} ({count})")
             print("-" * 60)
 
         if "album" in _args.list or "all" in _args.list:
             print("Albums (photo count): ")
-            for album, count in photosdb.albums_as_dict().items():
+            for album, count in photosdb.albums_as_dict.items():
                 print(f"\t{album} ({count})")
             print("-" * 60)
         sys.exit(0)
@@ -466,7 +468,6 @@ def main():
 
     if _args.all:
         # process all the photos
-        # photos = list(_dbphotos.keys())
         photos = photosdb.photos()
     else:
         if _args.album is not None:
@@ -491,10 +492,10 @@ def main():
     if len(photos) > 0:
         tqdm.write(f"Processing {len(photos)} photo(s)")
         for photo in tqdm(iterable=photos, disable=_args.noprogress):
-            verbose(f"processing photo: {photo.filename()} {photo.path()}")
-            if photo.ismissing() and _args.showmissing:
+            verbose(f"processing photo: {photo.filename} {photo.path}")
+            if photo.ismissing and _args.showmissing:
                 tqdm.write(
-                    f"Missing photo: '{photo.filename()}' in database but ismissing flag set; path: {photo.path()}"
+                    f"Missing photo: '{photo.filename}' in database but ismissing flag set; path: {photo.path}"
                 )
             elif not _args.showmissing:
                 process_photo(photo, test=_args.test, export=_args.export)
