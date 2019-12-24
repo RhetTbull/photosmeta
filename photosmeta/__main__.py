@@ -114,11 +114,7 @@ def process_arguments():
         help="database file [will default to database last opened by Photos]",
     )
     parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        default=False,
-        help="print verbose output",
+        "--verbose", action="store_true", default=False, help="print verbose output"
     )
     parser.add_argument(
         "-f",
@@ -178,6 +174,7 @@ def process_arguments():
         help="do not show progress bar; helpful with --verbose",
     )
     parser.add_argument(
+        "-v",
         "--version",
         action="store_true",
         default=False,
@@ -220,14 +217,16 @@ def process_arguments():
         help="Automatically create output folders to organize photos "
         "by date created (e.g. DEST/2019/12/20/photoname.jpg).",
     )
-    # parser.add_argument(
-    #     "--edited",
-    #     action="store_true",
-    #     default=False,
-    #     help="Also update or export edited version of photo if one exists; "
-    #     "if exported, edited version will be named photoname_edited.ext where "
-    #     "photoname is name of original photo and ext is extension of original photo",
-    # )
+    parser.add_argument(
+        "--edited",
+        action="store_true",
+        default=False,
+        help="Also update or export edited version of photo if one exists; "
+        "if exported, edited version will be named photoname_edited.ext where "
+        "photoname is name of original photo and ext is extension of original photo. "
+        "Warning: recommend --edited not be used with --inplace as it can cause errors when "
+        "opening the photo in Photos.app",
+    )
 
     # if no args, show help and exit
     if len(sys.argv) == 1:
@@ -327,7 +326,7 @@ def export_photo(
     # if export-edited, also export the edited version
     # verify the photo has adjustments and valid path to avoid raising an exception
     if export_edited and photo.hasadjustments and photo.path_edited is not None:
-        edited_name = pathlib.Path(filename)
+        edited_name = pathlib.Path(pathlib.Path(photo_path).name)
         edited_name = f"{edited_name.stem}_edited{edited_name.suffix}"
         if verbose:
             tqdm.write(f"Exporting edited version of {filename} as {edited_name}")
@@ -344,6 +343,7 @@ def process_photo(
     xattrtag=False,
     xattrperson=False,
     export_by_date=False,
+    edited=False,
 ):
     """ process a photo using exiftool to write metadata to image file 
         test: run in test mode (don't actually process anything) 
@@ -353,7 +353,8 @@ def process_photo(
         inplace: modify files in place (don't export) 
         xattrtag: apply keywords to extended attribute tags 
         xattrperson: apply person name to extended attribute tags 
-        export_by_date: if export path is not None, will create sub-folders in export based on photo creation date """
+        export_by_date: if export path is not None, will create sub-folders in export based on photo creation date
+        edited: also modify (inplace) or export edited version if one exits """
 
     exif_cmd = []
 
@@ -371,7 +372,7 @@ def process_photo(
         if not test:
             # photo, dest, verbose, export_by_date, overwrite, export_edited, original_name
             photopath = export_photo(
-                photo, export, _VERBOSE, export_by_date, True, False, False
+                photo, export, _VERBOSE, export_by_date, False, edited, False
             )
 
     # get existing metadata
@@ -419,6 +420,17 @@ def process_photo(
 
     # only run exiftool if something to update
     if exif_cmd:
+        paths = [photopath]
+        # if edited, also process the edited version
+        if edited and photo.hasadjustments:
+            if export:
+                edited_path = pathlib.Path(photopath)
+                edited_name = f"{edited_path.stem}_edited{edited_path.suffix}"
+                edited_path = pathlib.Path(photopath).parent / pathlib.Path(edited_name)
+                paths.append(str(edited_path))
+            else:
+                paths.append(photo.path_edited)
+
         if inplace or export:
             exif_cmd.append("-overwrite_original_in_place")
 
@@ -427,50 +439,53 @@ def process_photo(
 
         # add photopath as last argument
         exiftool = get_exiftool_path()
-        exif_cmd.append(photopath)
         exif_cmd.insert(0, exiftool)
-        logging.debug(f"running: {exif_cmd}")
+        for photopath in paths:
+            # process both original and edited if requested
+            logging.debug(f"running: {[*exif_cmd,photopath]}")
 
-        if not test:
-            try:
-                # SECURITY NOTE: none of the args to exiftool are shell quoted
-                # as subprocess.run does this as long as shell=True is not used
-                proc = subprocess.run(exif_cmd, check=True, stdout=subprocess.PIPE)
-            except subprocess.CalledProcessError as e:
-                sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
-            else:
-                logging.debug("returncode: %d" % proc.returncode)
-                logging.debug(
-                    "Have {} bytes in stdout:\n{}".format(
-                        len(proc.stdout), proc.stdout.decode("utf-8")
+            if not test:
+                try:
+                    # SECURITY NOTE: none of the args to exiftool are shell quoted
+                    # as subprocess.run does this as long as shell=True is not used
+                    proc = subprocess.run(
+                        [*exif_cmd, photopath], check=True, stdout=subprocess.PIPE
                     )
-                )
-                verbose(proc.stdout.decode("utf-8"))
-        else:
-            verbose(f"TEST: Processed {photo.filename}")
-            logging.debug(f"TEST: {exif_cmd}")
+                except subprocess.CalledProcessError as e:
+                    sys.exit("subprocess error calling command %s %s" % (exif_cmd, e))
+                else:
+                    logging.debug("returncode: %d" % proc.returncode)
+                    logging.debug(
+                        "Have {} bytes in stdout:\n{}".format(
+                            len(proc.stdout), proc.stdout.decode("utf-8")
+                        )
+                    )
+                    verbose(proc.stdout.decode("utf-8"))
+            else:
+                verbose(f"TEST: Processed {photo.filename}")
+                logging.debug(f"TEST: {[*exif_cmd, photopath]}")
+
+            # update xattr tags if requested
+            if (xattrtag and keywords_raw) or (xattrperson and persons_raw):
+                taglist = []
+                if xattrtag and keywords_raw:
+                    taglist = build_list([taglist, list(keywords_raw)])
+                if xattrperson and persons_raw:
+                    taglist = build_list([taglist, list(persons_raw)])
+
+                verbose(f"Applying extended attributes to {photopath}")
+
+                if not test:
+                    try:
+                        meta = osxmetadata.OSXMetaData(photopath)
+                        for tag in taglist:
+                            meta.tags += tag
+                    except Exception as e:
+                        sys.exit(f"ERROR: {e}")
+                else:
+                    verbose(f"TEST: applied extended attributes to {photopath}")
     else:
         verbose(f"Skipping photo {photopath}, nothing to do")
-
-    # update xattr tags if requested
-    if (xattrtag and keywords_raw) or (xattrperson and persons_raw):
-        taglist = []
-        if xattrtag and keywords_raw:
-            taglist = build_list([taglist, list(keywords_raw)])
-        if xattrperson and persons_raw:
-            taglist = build_list([taglist, list(persons_raw)])
-
-        verbose("Applying extended attributes")
-
-        if not test:
-            try:
-                meta = osxmetadata.OSXMetaData(photopath)
-                for tag in taglist:
-                    meta.tags += tag
-            except Exception as e:
-                sys.exit(f"ERROR: {e}")
-        else:
-            verbose(f"TEST: applied extended attributes to {photo.filename}")
 
     return
 
@@ -590,6 +605,7 @@ def main():
                     xattrtag=args.xattrtag,
                     xattrperson=args.xattrperson,
                     export_by_date=args.export_by_date,
+                    edited=args.edited,
                 )
     else:
         tqdm.write("No photos found to process")
