@@ -232,6 +232,12 @@ def process_arguments():
         default=False,
         help="Use photo's original filename instead of current filename for export",
     )
+    parser.add_argument(
+        "--albums-as-keywords",
+        action="store_true",
+        default=False,
+        help="Store album names as keywords",
+    )
 
     # if no args, show help and exit
     if len(sys.argv) == 1:
@@ -347,6 +353,7 @@ def process_photo(
     export_by_date=False,
     edited=False,
     original_name=False,
+    albums_as_keywords=False,
 ):
     """ process a photo using exiftool to write metadata to image file 
         test: run in test mode (don't actually process anything) 
@@ -358,7 +365,8 @@ def process_photo(
         xattrperson: apply person name to extended attribute tags 
         export_by_date: if export path is not None, will create sub-folders in export based on photo creation date
         edited: also modify (inplace) or export edited version if one exits
-        original_name: use original filename instead of current filename for export """
+        original_name: use original filename instead of current filename for export 
+        albums_as_keywords: treat album names as keywords """
 
     exif_cmd = []
 
@@ -390,6 +398,7 @@ def process_photo(
     keywords_raw = None
     persons_raw = None
 
+    keywords_raw = set()
     if photo.keywords:
         # merge existing keywords, removing duplicates
         tmp1 = j[0]["IPTC:Keywords"] if "IPTC:Keywords" in j[0] else None
@@ -399,6 +408,14 @@ def process_photo(
         for keyword in keywords_raw:
             exif_cmd.append(f"-XMP:TagsList={keyword}")
             exif_cmd.append(f"-keywords={keyword}")
+
+    # process albums as keywords if requested
+    # don't process any album names that have already been processed as keywords
+    if albums_as_keywords:
+        for album in photo.albums:
+            if album not in keywords_raw:
+                exif_cmd.append(f"-XMP:TagsList={album}")
+                exif_cmd.append(f"-keywords={album}")
 
     if photo.persons:
         # tmp1 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
@@ -436,7 +453,12 @@ def process_photo(
                 edited_path = pathlib.Path(photopath)
                 edited_name = f"{edited_path.stem}_edited{edited_path.suffix}"
                 edited_path = pathlib.Path(photopath).parent / pathlib.Path(edited_name)
-                paths.append(str(edited_path))
+                if os.path.exists(edited_path):
+                    paths.append(str(edited_path))
+                else:
+                    tqdm.write(
+                        f"WARNING: skipping file {str(edited_path)}, does not appear to exist"
+                    )
             else:
                 paths.append(photo.path_edited)
 
@@ -616,6 +638,7 @@ def main():
                     export_by_date=args.export_by_date,
                     edited=args.edited,
                     original_name=args.original_name,
+                    albums_as_keywords=args.albums_as_keywords,
                 )
     else:
         tqdm.write("No photos found to process")
