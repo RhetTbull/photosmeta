@@ -98,6 +98,7 @@ optional arguments:
                         Photos.app
   --original-name       Use photo's original filename instead of current
                         filename for export
+  --albums-as-keywords  Store album names as keywords
 ```
 
 ## Examples
