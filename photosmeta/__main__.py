@@ -109,8 +109,15 @@ def process_arguments():
     # one required argument: path to database file
     # parser.add_argument("DATABASE_FILE", help="path to Photos database file")
     parser.add_argument(
+        "photos_library",
+        nargs="?",
+        help="path to Photos library database, e.g. ~/Pictures/Photos\ Library.photoslibrary "
+        "NOTE: May be specified either as positional argument or via --database",
+    )
+    parser.add_argument(
         "--database",
-        help="database file [will default to database last opened by Photos]",
+        help="path to Photos library database, e.g. ~/Pictures/Photos\ Library.photoslibrary "
+        "NOTE: May be specified either as positional argument or via --database",
     )
     parser.add_argument(
         "--verbose", action="store_true", default=False, help="print verbose output"
@@ -562,8 +569,13 @@ def main():
 
     if any([args.all, args.album, args.keyword, args.person, args.uuid, args.list]):
         print("Loading database...")
-        photosdb = osxphotos.PhotosDB(dbfile=args.database)
-        print(f"Loaded database {photosdb.db_path}")
+        db = args.photos_library if args.photos_library is not None else args.database
+        if db is None or not os.path.exists(db):
+            sys.exit(
+                "Must pass valid Photos library database via --database or photos_library positional argument"
+            )
+        photosdb = osxphotos.PhotosDB(dbfile=db)
+        print(f"Loaded database {photosdb.library_path}")
     else:
         print(
             "You must select at least one of the following options: "
