@@ -517,9 +517,9 @@ def process_photo(
                     try:
                         meta = osxmetadata.OSXMetaData(photopath)
                         for tag in taglist:
-                            meta.tags += tag
+                            meta.tags += [tag]
                     except Exception as e:
-                        sys.exit(f"ERROR: {e}")
+                        raise e
                 else:
                     verbose(f"TEST: applied extended attributes to {photopath}")
     else:

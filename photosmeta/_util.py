@@ -76,6 +76,6 @@ def copyfile_with_osx_metadata(src, dest, overwrite_dest=False, findercomments=F
     if findercomments:
         md_src = osxmetadata.OSXMetaData(src)
         md_dest = osxmetadata.OSXMetaData(dest)
-        md_dest.finder_comment = md_src.finder_comment
+        md_dest.findercomment = md_src.findercomment
 
     return dest
