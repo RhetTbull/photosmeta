@@ -336,7 +336,7 @@ def export_photo(
         date_created = photo.date.timetuple()
         dest = create_path_by_date(dest, date_created)
 
-    photo_path = photo.export(dest, filename, overwrite=overwrite)
+    photo_path = photo.export(dest, filename, overwrite=overwrite)[0]
 
     # if export-edited, also export the edited version
     # verify the photo has adjustments and valid path to avoid raising an exception
