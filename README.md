@@ -25,13 +25,13 @@ faces and keywords are merged with any data found in destination file (removing 
 Optionally, will write keywords and/or faces (persons) to
   Mac OS native keywords/tags (xattr kMDItemUserTags)
   
-If you only want to export photos without updating metadata, I recommend you use the companion project [osxphotos](https://github.com/RhetTbull/osxphotos).  
+If you only want to export photos, I strongly recommend you use the companion project [osxphotos](https://github.com/RhetTbull/osxphotos) which provides more control over the export process.  
 
 ## Installation
 
 I recommend using [pipx](https://github.com/pipxproject/pipx)
 
-`pipx install --spec git+https://github.com/RhetTbull/photosmeta.git photosmeta`
+`pipx install git+https://github.com/RhetTbull/photosmeta.git`
 
 or install using setup.py:
 
