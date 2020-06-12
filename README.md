@@ -11,13 +11,16 @@ or
 then in the Spotlight bar, searching for "tag:kids" will find all photos in Photos with keyword="kids" and open those files directly in Photos. 
 
 Metadata currently extracted and where it is placed:
-Photos Faces --> XMP:PersonInImage
 
-Photos keywords --> XMP:TagsList, IPTC:Keywords
+Photos Faces --> XMP:PersonInImage (and optionally XMP:TagsList, IPTC:Keywords, XMP:Subject)
+
+Photos keywords --> XMP:TagsList, IPTC:Keywords, XMP:Subject
 
 Photos title --> XMP:Title
 
 Photos description --> IPTC:Caption-Abstract, EXIF:ImageDescription, XMP:Description
+
+Photos albums --> optionally XMP:TagsList, IPTC:Keywords, XMP:Subject 
 
 title and description are overwritten in the destination file
 faces and keywords are merged with any data found in destination file (removing duplicates)
@@ -99,6 +102,7 @@ optional arguments:
   --original-name       Use photo's original filename instead of current
                         filename for export
   --albums-as-keywords  Store album names as keywords
+  --persons-as-keywords Store person names as keywords
 ```
 
 ## Examples
