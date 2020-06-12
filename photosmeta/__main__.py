@@ -56,8 +56,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-from osxmetadata import OSXMetaData, Tag
 import osxphotos
+from osxmetadata import OSXMetaData, Tag
 from tqdm import tqdm
 
 from ._util import build_list, check_file_exists
@@ -250,9 +250,7 @@ def process_arguments():
         parser.print_help(sys.stderr)
         sys.exit(0)
 
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 
 @lru_cache(maxsize=1)
@@ -275,7 +273,6 @@ def get_exif_info_as_json(photopath):
 
     if not check_file_exists(photopath):
         raise ValueError("Photopath %s does not appear to be valid file" % photopath)
-        return
 
     exiftool = get_exiftool_path()
     exif_cmd = [exiftool, "-G", "-j", "-sort", photopath]
@@ -292,9 +289,7 @@ def get_exif_info_as_json(photopath):
             )
         )
 
-    j = json.loads(proc.stdout.decode("utf-8").rstrip("\r\n"))
-
-    return j
+    return json.loads(proc.stdout.decode("utf-8").rstrip("\r\n"))
 
 
 def export_photo(
@@ -323,11 +318,7 @@ def export_photo(
         return None
 
     filename = None
-    if original_name:
-        filename = photo.original_filename
-    else:
-        filename = photo.filename
-
+    filename = photo.original_filename if original_name else photo.filename
     if verbose:
         tqdm.write(f"Exporting {photo.filename} as {filename}")
 
@@ -564,6 +555,10 @@ def main():
         sys.exit(0)
 
     if args.export:
+        print(
+            "DEPRECATED: export option is deprecated.  Consider using osxphotos: https://github.com/RhetTbull/osxphotos",
+            file=sys.stderr,
+        )
         # verify export path is valid
         if not os.path.isdir(args.export):
             sys.exit(f"export path {args.export} must be valid path")
