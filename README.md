@@ -32,6 +32,8 @@ If you only want to export photos, I strongly recommend you use the companion pr
 
 ## Installation
 
+Requires Python 3.8
+
 I recommend using [pipx](https://github.com/pipxproject/pipx)
 
 `pipx install git+https://github.com/RhetTbull/photosmeta.git`
