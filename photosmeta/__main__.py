@@ -57,6 +57,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import osxphotos
+from osxphotos.utils import dd_to_dms_str
 from osxmetadata import OSXMetaData, Tag
 from tqdm import tqdm
 
@@ -244,6 +245,12 @@ def process_arguments():
         default=False,
         help="Store album names as keywords",
     )
+    parser.add_argument(
+        "--persons-as-keywords",
+        action="store_true",
+        default=False,
+        help="Store person names as keywords",
+    )
 
     # if no args, show help and exit
     if len(sys.argv) == 1:
@@ -351,6 +358,7 @@ def process_photo(
     edited=False,
     original_name=False,
     albums_as_keywords=False,
+    persons_as_keywords=False,
 ):
     """ process a photo using exiftool to write metadata to image file 
         test: run in test mode (don't actually process anything) 
@@ -363,7 +371,8 @@ def process_photo(
         export_by_date: if export path is not None, will create sub-folders in export based on photo creation date
         edited: also modify (inplace) or export edited version if one exits
         original_name: use original filename instead of current filename for export 
-        albums_as_keywords: treat album names as keywords """
+        albums_as_keywords: treat album names as keywords 
+        persons_as_keywords: treat person names as keywords """
 
     exif_cmd = []
 
@@ -400,11 +409,15 @@ def process_photo(
         # merge existing keywords, removing duplicates
         tmp1 = j[0]["IPTC:Keywords"] if "IPTC:Keywords" in j[0] else None
         tmp2 = j[0]["XMP:TagsList"] if "XMP:TagsList" in j[0] else None
-        keywords_raw = build_list([photo.keywords, tmp1, tmp2])
+        tmp3 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
+        tmp4 = photo.persons if persons_as_keywords and photo.persons else None
+
+        keywords_raw = build_list([photo.keywords, tmp1, tmp2, tmp3, tmp4])
         keywords_raw = set(keywords_raw)
         for keyword in keywords_raw:
             exif_cmd.append(f"-XMP:TagsList={keyword}")
             exif_cmd.append(f"-keywords={keyword}")
+            exif_cmd.append(f"-XMP:Subject={keyword}")
 
     # process albums as keywords if requested
     # don't process any album names that have already been processed as keywords
@@ -413,6 +426,7 @@ def process_photo(
             if album not in keywords_raw:
                 exif_cmd.append(f"-XMP:TagsList={album}")
                 exif_cmd.append(f"-keywords={album}")
+                exif_cmd.append(f"-XMP:Subject={album}")
 
     if photo.persons:
         # tmp1 = j[0]["XMP:Subject"] if "XMP:Subject" in j[0] else None
@@ -428,7 +442,6 @@ def process_photo(
 
         for person in persons_raw:
             exif_cmd.append(f"-xmp:PersonInImage={person}")
-            # exif_cmd.append(f"-subject={person}")
 
     # desc = desc or _dbphotos[uuid]["extendedDescription"]
     desc = photo.description
@@ -440,6 +453,33 @@ def process_photo(
     title = photo.title
     if title:
         exif_cmd.append(f"-xmp:title={title}")
+
+    (lat, lon) = photo.location
+    if lat is not None and lon is not None:
+        lat_str, lon_str = dd_to_dms_str(lat, lon)
+        exif_cmd.append(f"-EXIF:GPSLatitude={lat_str}")
+        exif_cmd.append(f"-EXIF:GPSLongitude={lon_str}")
+        lat_ref = "North" if lat >= 0 else "South"
+        lon_ref = "East" if lon >= 0 else "West"
+        exif_cmd.append(f"-EXIF:GPSLatitudeRef={lat_ref}")
+        exif_cmd.append(f"-EXIF:GPSLongitudeRef={lon_ref}")
+
+    # process date/time and timezone offset
+    date = photo.date
+    # exiftool expects format to "2015:01:18 12:00:00"
+    datetimeoriginal = date.strftime("%Y:%m:%d %H:%M:%S")
+    offsettime = date.strftime("%z")
+    # find timezone offset in format "-04:00"
+    offset = re.findall(r"([+-]?)([\d]{2})([\d]{2})", offsettime)
+    offset = offset[0]  # findall returns list of tuples
+    offsettime = f"{offset[0]}{offset[1]}:{offset[2]}"
+    exif_cmd.append(f"-EXIF:DateTimeOriginal={datetimeoriginal}")
+    exif_cmd.append(f"-EXIF:OffsetTimeOriginal={offsettime}")
+
+    if photo.date_modified is not None:
+        exif_cmd.append(
+            f"-EXIF:ModifyDate={photo.date_modified.strftime('%Y:%m:%d %H:%M:%S')}"
+        )
 
     # only run exiftool if something to update
     if exif_cmd:
@@ -663,6 +703,7 @@ def main():
                     edited=args.edited,
                     original_name=args.original_name,
                     albums_as_keywords=args.albums_as_keywords,
+                    persons_as_keywords=args.persons_as_keywords,
                 )
     else:
         tqdm.write("No photos found to process")
