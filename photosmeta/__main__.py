@@ -56,9 +56,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-import osxmetadata
+from osxmetadata import OSXMetaData, Tag
 import osxphotos
-from osxphotos.utils import create_path_by_date
 from tqdm import tqdm
 
 from ._util import build_list, check_file_exists
@@ -515,9 +514,9 @@ def process_photo(
 
                 if not test:
                     try:
-                        meta = osxmetadata.OSXMetaData(photopath)
+                        meta = OSXMetaData(photopath)
                         for tag in taglist:
-                            meta.tags += [tag]
+                            meta.tags += [Tag(tag)]
                     except Exception as e:
                         raise e
                 else:
@@ -526,6 +525,24 @@ def process_photo(
         verbose(f"Skipping photo {photopath}, nothing to do")
 
     return
+
+
+def create_path_by_date(dest, dt):
+    """ Creates a path in dest folder in form dest/YYYY/MM/DD/
+        dest: valid path as str
+        dt: datetime.timetuple() object
+        Checks to see if path exists, if it does, do nothing and return path
+        If path does not exist, creates it and returns path"""
+    if not os.path.isdir(dest):
+        raise FileNotFoundError(f"dest {dest} must be valid path")
+    yyyy, mm, dd = dt[0:3]
+    yyyy = str(yyyy).zfill(4)
+    mm = str(mm).zfill(2)
+    dd = str(dd).zfill(2)
+    new_dest = os.path.join(dest, yyyy, mm, dd)
+    if not os.path.isdir(new_dest):
+        os.makedirs(new_dest)
+    return new_dest
 
 
 def main():

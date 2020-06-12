@@ -46,6 +46,6 @@ setup(
         "Operating System :: MacOS :: MacOS X",
         "Programming Language :: Python",
     ],
-    install_requires=["osxphotos>=0.22.23", "osxmetadata>=0.98.0", "tqdm>=4.36.1"],
+    install_requires=["osxphotos>=0.29.13", "osxmetadata>=0.99.4", "tqdm>=4.36.1"],
     entry_points={"console_scripts": ["photosmeta=photosmeta.__main__:main"]},
 )
