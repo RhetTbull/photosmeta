@@ -1,5 +1,7 @@
 # Summary
 
+NOTE: I **strongly** recommend you go take a look at my other Photos project, [osxphotos](https://github.com/RhetTbull/osxphotos) which is maintained much more regularly than PhotosMeta and is much more versatile. 
+
 This script will extract known metadata from Apple's Photos library and write this metadata to EXIF/IPTC/XMP fields in the photo file. For example: Photos knows about Faces (personInImage) but does not preserve this data when exporting the original photo. Using photosmeta, you can export photos while preserving the metadata such as Faces, keywords, etc.  This script can also be run to modify your Photos library in place and add metadata to Mac extended attributes so that you can find photos in your Photos database using Spotlight.  For example, after installing, run:
 
 `python3 -m photosmeta --inplace --all --xattrtag` 
