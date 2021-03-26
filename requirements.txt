@@ -132,7 +132,7 @@ pyobjc-framework-VideoSubscriberAccount==6.1
 pyobjc-framework-VideoToolbox==6.1
 pyobjc-framework-Vision==6.1
 pyobjc-framework-WebKit==6.1
-PyYAML==5.1.2
+PyYAML==5.4
 six==1.13.0
 tqdm==4.36.1
 wrapt==1.11.2
