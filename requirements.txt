@@ -9,7 +9,7 @@ future==0.17.1
 isort==4.3.21
 lazy-object-proxy==1.4.3
 macholib==1.11
-Mako==1.1.2
+Mako==1.2.2
 MarkupSafe==1.1.1
 mccabe==0.6.1
 osxmetadata==0.99.4
